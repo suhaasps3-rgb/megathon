@@ -1,11 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import World from './World.jsx';
+import ResultsPanel from './ResultsPanel.jsx';
+import { analyseRun } from '../../neighborhood/analysis.js';
 import { POIS } from '../../neighborhood/layout.js';
 import {
   BIKE_PRICE, SAVE_AMOUNT, REPAIR_COST, CHAI_PRICE, DELIVERY_PAY,
   payDelivery, buyBikeNow, saveInsteadOfBike, payRepair, projectSavings, loadWallet, saveWallet,
-  LOAN_RATE_YEARLY,
+  startNewRun, LOAN_RATE_YEARLY,
 } from '../../neighborhood/economy.js';
 
 const GAME_KEYS = new Set([
@@ -106,6 +108,7 @@ export default function NeighborhoodGame({ onExit }) {
   const keys = useRef(new Set());
   const nearbyRef = useRef(null);
   const dialogRef = useRef(null);
+  const resultsRef = useRef(false);
   nearbyRef.current = nearby;
   dialogRef.current = dialog;
 
@@ -124,7 +127,7 @@ export default function NeighborhoodGame({ onExit }) {
     const down = (e) => {
       if (e.code === 'KeyE') {
         e.preventDefault();
-        if (!e.repeat && nearbyRef.current && !dialogRef.current) setDialog(nearbyRef.current);
+        if (!e.repeat && nearbyRef.current && !dialogRef.current && !resultsRef.current) setDialog(nearbyRef.current);
         return;
       }
       if (e.code === 'Escape') {
@@ -158,6 +161,14 @@ export default function NeighborhoodGame({ onExit }) {
     onPointerCancel: () => keys.current.delete(code),
   });
 
+  // The results panel opens once per finished run. Closing it is saved, so a refresh does not replay it.
+  const showResults = wallet.step === 'done' && !wallet.resultsSeen;
+  const analysis = useMemo(() => (showResults ? analyseRun(wallet) : null), [showResults, wallet]);
+  resultsRef.current = Boolean(analysis);
+
+  const closeResults = () => setWallet((w) => ({ ...w, resultsSeen: true }));
+  const replay = () => setWallet((w) => startNewRun(w));
+
   const choose = (option) => {
     const res = option.run(wallet);
     if (res.ok) setWallet(res.state);
@@ -172,7 +183,7 @@ export default function NeighborhoodGame({ onExit }) {
   return (
     <div className="mx-auto max-w-6xl px-3 pb-12 pt-4 md:px-6">
       <div className="relative h-[72vh] min-h-[480px] w-full overflow-hidden rounded-3xl border-4 border-white bg-sky-200 shadow-2xl">
-        <World keys={keys} paused={dialog !== null} onNearby={setNearby} />
+        <World keys={keys} paused={dialog !== null || Boolean(analysis)} onNearby={setNearby} />
 
         <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <div className="pointer-events-auto max-w-xs rounded-2xl bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
@@ -243,7 +254,9 @@ export default function NeighborhoodGame({ onExit }) {
           </div>
         )}
 
-        {!dialog && (
+        {analysis && <ResultsPanel analysis={analysis} onExplore={closeResults} onReplay={replay} />}
+
+        {!dialog && !analysis && (
           <div className="absolute bottom-3 left-3 flex flex-col items-start gap-2 md:hidden" aria-label="Touch controls">
             <div className="grid grid-cols-3 gap-1 select-none touch-none">
               <span />

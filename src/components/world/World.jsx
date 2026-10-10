@@ -4,12 +4,18 @@ import {
   BOUND, OBSTACLES, POIS, PLAYER_RADIUS, WALK_SPEED, RUN_SPEED, JUMP_VELOCITY, GRAVITY, INTERACT_RANGE,
 } from '../../neighborhood/layout.js';
 import { collides, moveWithCollision, nearestPoi } from '../../neighborhood/movement.js';
+import { cameraRelativeMove, keyboardVector } from '../../neighborhood/controls.js';
 
 const CAMERA_DISTANCE = 8;
 const CAMERA_MIN_DISTANCE = 1.5;
+const ACCEL = 14; // how quickly the player reaches full speed
+const DECEL = 9; // how quickly the player stops
 
-/** Scene and player physics. Input comes from a shared key set owned by the parent. */
-export default function World({ keys, paused, onNearby }) {
+/**
+ * Scene and player physics. `inputRef` is owned by the parent and holds the held keys, the
+ * joystick vector and the camera look angles, so every control path feeds one place.
+ */
+export default function World({ inputRef, paused, onNearby }) {
   return (
     <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 4.5, 8], fov: 50 }} aria-label="Neighborhood 3D world">
       <color attach="background" args={['#bae6fd']} />
@@ -27,7 +33,7 @@ export default function World({ keys, paused, onNearby }) {
       <Ground />
       {OBSTACLES.map((o) => <Obstacle key={o.id} o={o} />)}
       {POIS.map((p) => <Person key={p.id} p={p} />)}
-      <Player keys={keys} paused={paused} onNearby={onNearby} />
+      <Player inputRef={inputRef} paused={paused} onNearby={onNearby} />
     </Canvas>
   );
 }
@@ -132,29 +138,45 @@ function Person({ p }) {
   );
 }
 
-function Player({ keys, paused, onNearby }) {
+function Player({ inputRef, paused, onNearby }) {
   const groupRef = useRef();
   const legsRef = useRef();
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
-  const s = useMemo(() => ({ x: 0, z: 0, y: 0, vy: 0, yaw: 0, stride: 0, grounded: true, near: null }), []);
+  const s = useMemo(() => ({ x: 0, z: 0, y: 0, vx: 0, vz: 0, vy: 0, yaw: 0, stride: 0, grounded: true, near: null }), []);
 
   useFrame((state, dt) => {
     const d = Math.min(dt, 0.05);
-    const k = keys.current;
+    const input = inputRef.current;
+    const k = input.keys;
     const frozen = pausedRef.current;
-    const ax = frozen ? 0 : (has(k, 'KeyD', 'ArrowRight') ? 1 : 0) - (has(k, 'KeyA', 'ArrowLeft') ? 1 : 0);
-    const az = frozen ? 0 : (has(k, 'KeyS', 'ArrowDown') ? 1 : 0) - (has(k, 'KeyW', 'ArrowUp') ? 1 : 0);
-    const len = Math.hypot(ax, az) || 1;
-    const speed = has(k, 'ShiftLeft', 'ShiftRight') ? RUN_SPEED : WALK_SPEED;
-    const moving = ax !== 0 || az !== 0;
 
-    const next = moveWithCollision(s, (ax / len) * speed * d, (az / len) * speed * d, OBSTACLES, PLAYER_RADIUS, BOUND);
+    // Keyboard and joystick add together, then are clamped so neither can exceed full tilt.
+    const kb = keyboardVector((...codes) => has(k, ...codes));
+    const ix = frozen ? 0 : clamp1(kb.x + input.stick.x);
+    const iz = frozen ? 0 : clamp1(kb.y + input.stick.y);
+    const running = has(k, 'ShiftLeft', 'ShiftRight');
+    const speed = running ? RUN_SPEED : WALK_SPEED;
+    const dir = cameraRelativeMove(ix, iz, input.look.yaw);
+    const hasInput = Math.hypot(ix, iz) > 0;
+
+    // Ease toward the target velocity, so starts and stops feel weighted instead of instant.
+    const accel = 1 - Math.exp(-(hasInput ? ACCEL : DECEL) * d);
+    s.vx += (dir.x * speed - s.vx) * accel;
+    s.vz += (dir.z * speed - s.vz) * accel;
+
+    const next = moveWithCollision(s, s.vx * d, s.vz * d, OBSTACLES, PLAYER_RADIUS, BOUND);
+    // A blocked axis stops dead, so the character does not keep pushing into a wall.
+    if (next.x === s.x) s.vx = 0;
+    if (next.z === s.z) s.vz = 0;
     s.x = next.x;
     s.z = next.z;
+
+    const speedNow = Math.hypot(s.vx, s.vz);
+    const moving = speedNow > 0.05;
     if (moving) {
-      s.yaw = Math.atan2(ax, az);
-      s.stride += d * speed * 1.4;
+      s.yaw = Math.atan2(s.vx, s.vz);
+      s.stride += d * speedNow * 1.4;
     }
 
     if (!frozen && s.grounded && k.has('Space')) {
@@ -178,15 +200,19 @@ function Player({ keys, paused, onNearby }) {
       legsRef.current.rotation.x = moving && s.grounded ? Math.sin(s.stride) * 0.6 : 0;
     }
 
-    // Fixed follow camera behind the player, eased so it never snaps.
+    // Orbit camera: it sits on the ray set by the player's look angles, pulled in when a wall
+    // is between it and the player, so it never sits inside a building.
+    const { yaw, pitch } = input.look;
+    const ux = Math.sin(yaw) * Math.cos(pitch);
+    const uz = Math.cos(yaw) * Math.cos(pitch);
+    let dist = CAMERA_DISTANCE;
+    while (dist > CAMERA_MIN_DISTANCE && collides(s.x + ux * dist, s.z + uz * dist, OBSTACLES, 0.3)) dist -= 0.5;
+
     const cam = state.camera;
     const f = 1 - Math.exp(-6 * d);
-    cam.position.x += (s.x - cam.position.x) * f;
-    cam.position.y += (4.5 + s.y - cam.position.y) * f;
-    // Pull the camera in when a wall sits between it and the player, so it never sits inside a building.
-    let dist = CAMERA_DISTANCE;
-    while (dist > CAMERA_MIN_DISTANCE && collides(s.x, s.z + dist, OBSTACLES, 0.3)) dist -= 0.5;
-    cam.position.z += (s.z + dist - cam.position.z) * f;
+    cam.position.x += (s.x + ux * dist - cam.position.x) * f;
+    cam.position.y += (s.y + 1 + Math.sin(pitch) * dist - cam.position.y) * f;
+    cam.position.z += (s.z + uz * dist - cam.position.z) * f;
     cam.lookAt(s.x, 1 + s.y, s.z);
 
     const near = nearestPoi(s, POIS, INTERACT_RANGE);
@@ -203,6 +229,8 @@ function Player({ keys, paused, onNearby }) {
     </group>
   );
 }
+
+const clamp1 = (v) => Math.max(-1, Math.min(1, v));
 
 function has(set, ...codes) {
   return codes.some((c) => set.has(c));

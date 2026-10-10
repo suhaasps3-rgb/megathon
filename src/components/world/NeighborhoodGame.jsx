@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Pause, Play, LogOut } from 'lucide-react';
 import World from './World.jsx';
 import ResultsPanel from './ResultsPanel.jsx';
 import { analyseRun } from '../../neighborhood/analysis.js';
+import {
+  DEFAULT_PITCH, DEFAULT_CONTROLS, loadControls, saveControls, applyLook, stickVector,
+} from '../../neighborhood/controls.js';
 import { POIS } from '../../neighborhood/layout.js';
 import {
   BIKE_PRICE, SAVE_AMOUNT, REPAIR_COST, CHAI_PRICE, DELIVERY_PAY,
@@ -105,17 +108,29 @@ export default function NeighborhoodGame({ onExit }) {
   const [nearby, setNearby] = useState(null);
   const [dialog, setDialog] = useState(null); // place id while talking
   const [toast, setToast] = useState(null);
-  const keys = useRef(new Set());
+  // One shared input object: the scene reads it every frame, and every control writes to it.
+  const input = useRef({ keys: new Set(), stick: { x: 0, y: 0 }, look: { yaw: 0, pitch: DEFAULT_PITCH } });
+  const [controls, setControls] = useState(() => loadControls());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const controlsRef = useRef(controls);
+  controlsRef.current = controls;
+  const lookDrag = useRef(null);
   const nearbyRef = useRef(null);
   const dialogRef = useRef(null);
   const resultsRef = useRef(false);
+  const menuRef = useRef(false);
   nearbyRef.current = nearby;
   dialogRef.current = dialog;
+  menuRef.current = menuOpen;
 
   // Save every change. If the browser refuses storage, the game still works for this visit.
   useEffect(() => {
     if (!saveWallet(wallet)) setToast('Progress can’t be saved in this browser, so it will reset when you leave.');
   }, [wallet]);
+
+  useEffect(() => {
+    saveControls(controls);
+  }, [controls]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -125,22 +140,30 @@ export default function NeighborhoodGame({ onExit }) {
 
   useEffect(() => {
     const down = (e) => {
+      // Typing in a field (for example a future chat box) must never move the character.
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return;
       if (e.code === 'KeyE') {
         e.preventDefault();
-        if (!e.repeat && nearbyRef.current && !dialogRef.current && !resultsRef.current) setDialog(nearbyRef.current);
+        if (!e.repeat && nearbyRef.current && !dialogRef.current && !resultsRef.current && !menuRef.current) setDialog(nearbyRef.current);
         return;
       }
       if (e.code === 'Escape') {
-        setDialog(null);
+        // Esc closes a conversation first, then toggles the pause menu. It never fires behind the results.
+        if (dialogRef.current) setDialog(null);
+        else if (!resultsRef.current) setMenuOpen((m) => !m);
         return;
       }
       if (GAME_KEYS.has(e.code)) {
         e.preventDefault();
-        keys.current.add(e.code);
+        input.current.keys.add(e.code);
       }
     };
-    const up = (e) => keys.current.delete(e.code);
-    const clear = () => keys.current.clear();
+    const up = (e) => input.current.keys.delete(e.code);
+    const clear = () => {
+      input.current.keys.clear();
+      input.current.stick = { x: 0, y: 0 };
+    };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
     window.addEventListener('blur', clear);
@@ -154,12 +177,33 @@ export default function NeighborhoodGame({ onExit }) {
   const press = (code) => ({
     onPointerDown: (e) => {
       e.preventDefault();
-      keys.current.add(code);
+      input.current.keys.add(code);
     },
-    onPointerUp: () => keys.current.delete(code),
-    onPointerLeave: () => keys.current.delete(code),
-    onPointerCancel: () => keys.current.delete(code),
+    onPointerUp: () => input.current.keys.delete(code),
+    onPointerLeave: () => input.current.keys.delete(code),
+    onPointerCancel: () => input.current.keys.delete(code),
   });
+
+  // Drag on the scene to look around. Only drags that start on the canvas count, so buttons and
+  // panels laid over the scene never spin the camera.
+  const blocked = () => Boolean(dialogRef.current || menuRef.current || resultsRef.current);
+  const onLookDown = (e) => {
+    if (e.target.tagName !== 'CANVAS' || blocked()) return;
+    lookDrag.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const onLookMove = (e) => {
+    const g = lookDrag.current;
+    if (!g || g.id !== e.pointerId) return;
+    const dx = e.clientX - g.x;
+    const dy = e.clientY - g.y;
+    g.x = e.clientX;
+    g.y = e.clientY;
+    input.current.look = applyLook(input.current.look, dx, dy, controlsRef.current);
+  };
+  const onLookUp = (e) => {
+    if (lookDrag.current?.id === e.pointerId) lookDrag.current = null;
+  };
 
   // The results panel opens once per finished run. Closing it is saved, so a refresh does not replay it.
   const showResults = wallet.step === 'done' && !wallet.resultsSeen;
@@ -167,6 +211,7 @@ export default function NeighborhoodGame({ onExit }) {
   resultsRef.current = Boolean(analysis);
 
   const closeResults = () => setWallet((w) => ({ ...w, resultsSeen: true }));
+  const resume = () => setMenuOpen(false);
   const replay = () => setWallet((w) => startNewRun(w));
 
   const choose = (option) => {
@@ -182,8 +227,14 @@ export default function NeighborhoodGame({ onExit }) {
 
   return (
     <div className="mx-auto max-w-6xl px-3 pb-12 pt-4 md:px-6">
-      <div className="relative h-[72vh] min-h-[480px] w-full overflow-hidden rounded-3xl border-4 border-white bg-sky-200 shadow-2xl">
-        <World keys={keys} paused={dialog !== null || Boolean(analysis)} onNearby={setNearby} />
+      <div
+        className="relative h-[72vh] min-h-[480px] w-full touch-none overflow-hidden rounded-3xl border-4 border-white bg-sky-200 shadow-2xl"
+        onPointerDown={onLookDown}
+        onPointerMove={onLookMove}
+        onPointerUp={onLookUp}
+        onPointerCancel={onLookUp}
+      >
+        <World inputRef={input} paused={dialog !== null || Boolean(analysis) || menuOpen} onNearby={setNearby} />
 
         <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <div className="pointer-events-auto max-w-xs rounded-2xl bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
@@ -256,20 +307,22 @@ export default function NeighborhoodGame({ onExit }) {
 
         {analysis && <ResultsPanel analysis={analysis} onExplore={closeResults} onReplay={replay} />}
 
-        {!dialog && !analysis && (
-          <div className="absolute bottom-3 left-3 flex flex-col items-start gap-2 md:hidden" aria-label="Touch controls">
-            <div className="grid grid-cols-3 gap-1 select-none touch-none">
-              <span />
-              <PadKey label="↑" {...press('KeyW')} />
-              <span />
-              <PadKey label="←" {...press('KeyA')} />
-              <PadKey label="↓" {...press('KeyS')} />
-              <PadKey label="→" {...press('KeyD')} />
-            </div>
+        {menuOpen && !analysis && (
+          <PauseMenu
+            controls={controls}
+            onChange={setControls}
+            onResume={resume}
+            onExit={onExit}
+          />
+        )}
+
+        {!dialog && !analysis && !menuOpen && (
+          <div className="absolute bottom-3 left-3 md:hidden">
+            <Stick inputRef={input} />
           </div>
         )}
 
-        {!dialog && (
+        {!dialog && !analysis && !menuOpen && (
           <div className="absolute bottom-3 right-3 flex flex-col gap-2 md:hidden">
             <button type="button" {...press('Space')} className="touch-none select-none rounded-full bg-white/90 px-5 py-3 text-sm font-black shadow-lg">Jump</button>
             {nearPlace && (
@@ -286,7 +339,7 @@ export default function NeighborhoodGame({ onExit }) {
       </div>
 
       <p className="mt-3 text-center text-xs font-bold text-slate-600">
-        Move with WASD or arrow keys · Shift to run · Space to jump · E to talk · Esc to close
+        Move with WASD or arrows · Drag to look · Shift to run · Space to jump · E to talk · Esc to pause
       </p>
     </div>
   );
@@ -301,10 +354,113 @@ function Stat({ label, value, tone = 'text-slate-900' }) {
   );
 }
 
-function PadKey({ label, ...handlers }) {
+/** Virtual joystick for touch screens. It reports a vector, so diagonals and partial tilt work. */
+function Stick({ inputRef }) {
+  const base = useRef(null);
+  const [knob, setKnob] = useState({ x: 0, y: 0 });
+  const move = (e) => {
+    if (!e.currentTarget.hasPointerCapture?.(e.pointerId)) return;
+    const r = base.current.getBoundingClientRect();
+    const radius = r.width / 2;
+    const v = stickVector(e.clientX - (r.left + radius), e.clientY - (r.top + radius), radius);
+    inputRef.current.stick = v;
+    setKnob({ x: v.x * radius * 0.6, y: v.y * radius * 0.6 });
+  };
+  const release = (e) => {
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    inputRef.current.stick = { x: 0, y: 0 };
+    setKnob({ x: 0, y: 0 });
+  };
   return (
-    <button type="button" {...handlers} aria-label={`Move ${label}`} className="touch-none select-none rounded-xl bg-white/90 px-4 py-3 text-lg font-black shadow-lg">
-      {label}
-    </button>
+    <div
+      ref={base}
+      role="img"
+      aria-label="Move joystick. Drag to walk."
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        move(e);
+      }}
+      onPointerMove={move}
+      onPointerUp={release}
+      onPointerCancel={release}
+      className="relative h-36 w-36 touch-none select-none rounded-full border-2 border-white/80 bg-white/40 shadow-lg backdrop-blur"
+    >
+      <span
+        className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-xl"
+        style={{ transform: `translate(calc(-50% + ${knob.x}px), calc(-50% + ${knob.y}px))` }}
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
+const CONTROL_GUIDE = [
+  ['Move', 'WASD or arrow keys, or the joystick on touch'],
+  ['Look around', 'Drag on the scene'],
+  ['Run', 'Hold Shift'],
+  ['Jump', 'Space, or the Jump button'],
+  ['Talk', 'Stand near someone and press E, or the Talk button'],
+  ['Pause', 'Esc'],
+];
+
+/** Pause menu: resume, adjust look settings, see the controls, or leave the neighbourhood. */
+function PauseMenu({ controls, onChange, onResume, onExit }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="pause-title"
+      className="absolute inset-3 z-10 flex flex-col gap-4 overflow-y-auto rounded-3xl bg-white/95 p-5 shadow-2xl backdrop-blur md:inset-x-auto md:left-1/2 md:top-6 md:w-[30rem] md:-translate-x-1/2"
+    >
+      <h2 id="pause-title" className="text-2xl font-black text-ink-900">Paused</h2>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={onResume} className="btn-primary"><Play size={16} aria-hidden="true" /> Resume</button>
+        <button type="button" onClick={onExit} className="btn-secondary"><LogOut size={16} aria-hidden="true" /> Back to PaisaPath</button>
+      </div>
+
+      <fieldset className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+        <legend className="px-1 text-sm font-black text-ink-900">Look settings</legend>
+        <label className="flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
+          Sensitivity
+          <input
+            type="range"
+            min="0.5"
+            max="2"
+            step="0.1"
+            value={controls.sensitivity}
+            onChange={(e) => onChange({ ...controls, sensitivity: Number(e.target.value) })}
+            className="w-40 accent-purple-600"
+          />
+          <span className="w-10 text-right tabular-nums">{controls.sensitivity.toFixed(1)}×</span>
+        </label>
+        <label className="flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
+          Invert vertical look
+          <input
+            type="checkbox"
+            checked={controls.invertY}
+            onChange={(e) => onChange({ ...controls, invertY: e.target.checked })}
+            className="h-5 w-5 accent-purple-600"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => onChange({ ...DEFAULT_CONTROLS })}
+          className="justify-self-start text-xs font-black text-purple-700 underline"
+        >
+          Reset to defaults
+        </button>
+      </fieldset>
+
+      <dl className="grid gap-2 text-sm">
+        {CONTROL_GUIDE.map(([action, how]) => (
+          <div key={action} className="flex gap-3 rounded-xl bg-slate-50 px-3 py-2">
+            <dt className="w-28 shrink-0 font-black text-slate-900">{action}</dt>
+            <dd className="text-slate-700">{how}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="flex items-center gap-2 text-xs text-slate-500"><Pause size={12} aria-hidden="true" /> The world is paused while this menu is open.</p>
+    </div>
   );
 }

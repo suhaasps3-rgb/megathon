@@ -8,9 +8,10 @@ export default function BlindMode({ apiKey, onExit }) {
   const [message, setMessage] = useState("Welcome to PaisaPath Audio Mode. I am your financial mentor. Hold the Spacebar to speak, and release it when you are done. You currently have 1000 rupees. What would you like to do?");
   
   const recognitionRef = useRef(null);
+  const isListeningRef = useRef(false);
+  const isProcessingRef = useRef(false);
 
   useEffect(() => {
-    // Announce entrance
     speak(message);
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -19,24 +20,39 @@ export default function BlindMode({ apiKey, onExit }) {
       recognition.continuous = false;
       recognition.interimResults = false;
       
-      recognition.onstart = () => setIsListening(true);
+      recognition.onstart = () => {
+        isListeningRef.current = true;
+        setIsListening(true);
+      };
+
       recognition.onresult = (event) => {
+        // Guard: only process once per recording session
+        if (isProcessingRef.current) return;
+        isProcessingRef.current = true;
         const transcript = event.results[0][0].transcript;
         processInput(transcript);
       };
-      recognition.onerror = () => setIsListening(false);
-      recognition.onend = () => setIsListening(false);
+
+      recognition.onerror = () => {
+        isListeningRef.current = false;
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        isListeningRef.current = false;
+        setIsListening(false);
+      };
       
       recognitionRef.current = recognition;
     }
 
     const handleKeyDown = (e) => {
-      // Prevent default scrolling for spacebar
       if (e.code === 'Space') {
         e.preventDefault();
-        if (!e.repeat && !isListening) {
+        // Use ref to read CURRENT value, not stale closure value
+        if (!e.repeat && !isListeningRef.current && !isProcessingRef.current) {
           window.speechSynthesis.cancel();
-          recognitionRef.current?.start();
+          try { recognitionRef.current?.start(); } catch(err) {}
         }
       }
       if (e.code === 'Escape') {
@@ -101,6 +117,7 @@ export default function BlindMode({ apiKey, onExit }) {
       }
       setMessage(reply);
       speak(reply);
+      isProcessingRef.current = false; // Ready for next input
       return newWallet;
     });
   };

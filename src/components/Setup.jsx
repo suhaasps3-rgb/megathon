@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { KeyRound, Sparkles } from 'lucide-react';
 
-export default function Setup({ onComplete, t }) {
+export default function Setup({ onComplete, onLifeMode, t }) {
   const [key, setKey] = useState('');
 
   const T = t || {
@@ -46,6 +46,20 @@ export default function Setup({ onComplete, t }) {
           >
             {T.setupLaunch}
           </button>
+          <button
+            onClick={() => onComplete('')}
+            className="w-full text-sm font-bold text-slate-600 py-2 rounded-xl hover:bg-slate-100 transition-all"
+          >
+            {T.setupSkip || 'Continue without AI (offline lessons)'}
+          </button>
+          {onLifeMode && (
+            <button
+              onClick={onLifeMode}
+              className="w-full text-sm font-bold text-teal-700 py-2 rounded-xl hover:bg-teal-50 transition-all"
+            >
+              {T.lifeModeCta || 'Play Life Mode'}
+            </button>
+          )}
         </div>
       </motion.div>
     </div>

@@ -132,7 +132,9 @@ export function payRepair(s, source) {
 
 /** A fresh run that keeps the run count, so replaying is an explicit, single reset. */
 export function startNewRun(s) {
-  return { ...START, runs: (s.runs || 0) + 1 };
+  // Mission history is kept across runs; an unfinished mission is dropped so it cannot carry over.
+  const mission = s.mission ? { ...s.mission, active: null } : undefined;
+  return { ...START, runs: (s.runs || 0) + 1, ...(mission ? { mission } : {}) };
 }
 
 /** Reads the saved wallet. Storage can be blocked or hold junk, so any failure yields START. */

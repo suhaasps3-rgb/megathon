@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Pause, Play, LogOut } from 'lucide-react';
 import World from './World.jsx';
 import ResultsPanel from './ResultsPanel.jsx';
+import { acceptMission, completeMission, depositToReserve, TEMPLATES } from '../../neighborhood/missions.js';
 import { analyseRun } from '../../neighborhood/analysis.js';
 import {
   DEFAULT_PITCH, DEFAULT_CONTROLS, loadControls, saveControls, applyLook, stickVector,
@@ -31,7 +32,7 @@ const inr = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
  * What the player can do at each place right now. Each option names its consequence before
  * the player picks it, and its `run` is one of the pure rules in economy.js.
  */
-function dialogFor(id, w) {
+function baseDialogFor(id, w) {
   if (id === 'ravi') {
     if (w.step !== 'deliver') {
       return { speaker: 'Ravi · Gully Market', lines: ['Thanks for the help, yaar. Check out the Cycle Mart next.'], options: [] };
@@ -101,6 +102,34 @@ function dialogFor(id, w) {
     lines: [`Chai is ${inr(CHAI_PRICE)}. Every day for a year that is ${inr(CHAI_PRICE * 365)}. Save that instead, and see what it can grow to.`],
     options: [],
   };
+}
+
+/** Extra choices that a side mission adds at a place. They use the same pure rules as the rest. */
+function missionOptionsFor(id, w) {
+  const active = w.mission?.active;
+  if (!active) return [];
+  if (id === 'bank' && active.templateId === 'build-reserve') {
+    return [{
+      label: `Deposit ${inr(REPAIR_COST)} into savings`,
+      hint: w.cash >= REPAIR_COST ? `Cash left ${inr(w.cash - REPAIR_COST)}. Completes the mission.` : `You need ${inr(REPAIR_COST)} in cash`,
+      run: depositToReserve,
+      disabled: w.cash < REPAIR_COST,
+    }];
+  }
+  if (id === 'chai' && active.templateId === 'cost-check') {
+    return [{
+      label: 'Compare a daily chai with saving it',
+      hint: `Chai every day is ${inr(CHAI_PRICE * 365)} a year. Completes the mission.`,
+      run: (x) => completeMission(x, 'cost-check'),
+    }];
+  }
+  return [];
+}
+
+function dialogFor(id, w) {
+  const d = baseDialogFor(id, w);
+  const extra = missionOptionsFor(id, w);
+  return extra.length ? { ...d, options: [...d.options, ...extra] } : d;
 }
 
 export default function NeighborhoodGame({ onExit }) {
@@ -211,6 +240,11 @@ export default function NeighborhoodGame({ onExit }) {
   resultsRef.current = Boolean(analysis);
 
   const closeResults = () => setWallet((w) => ({ ...w, resultsSeen: true }));
+  const getMission = () => {
+    const r = acceptMission(wallet);
+    if (r.ok) setWallet(r.state);
+    setToast(r.message);
+  };
   const resume = () => setMenuOpen(false);
   const replay = () => setWallet((w) => startNewRun(w));
 
@@ -245,6 +279,7 @@ export default function NeighborhoodGame({ onExit }) {
               <Stat label="Aura" value={wallet.aura} />
             </div>
             <p className="mt-2 text-xs font-bold text-slate-700">{MISSION[wallet.step]}</p>
+            <MissionCard mission={wallet.mission?.active} onGet={getMission} />
           </div>
           <button
             type="button"
@@ -341,6 +376,26 @@ export default function NeighborhoodGame({ onExit }) {
       <p className="mt-3 text-center text-xs font-bold text-slate-600">
         Move with WASD or arrows · Drag to look · Shift to run · Space to jump · E to talk · Esc to pause
       </p>
+    </div>
+  );
+}
+
+/** Side mission board: shows the one active side mission, or offers a new one. */
+function MissionCard({ mission, onGet }) {
+  if (!mission) {
+    return (
+      <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-200 pt-2">
+        <span className="text-xs font-bold text-slate-600">No side mission</span>
+        <button type="button" onClick={onGet} className="rounded-lg bg-purple-600 px-2 py-1 text-xs font-black text-white">Get one</button>
+      </div>
+    );
+  }
+  const place = POIS.find((p) => p.id === TEMPLATES[mission.templateId]?.where);
+  return (
+    <div className="mt-2 border-t border-slate-200 pt-2">
+      <p className="text-[10px] font-black uppercase tracking-wider text-purple-700">{mission.category} · +{mission.reward} Aura</p>
+      <p className="text-xs font-black text-slate-900">{mission.title}</p>
+      <p className="text-xs text-slate-700">{mission.objective}{place ? ` Go to ${place.label}.` : ''}</p>
     </div>
   );
 }

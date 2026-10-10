@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Pause, Play, LogOut } from 'lucide-react';
 import World from './World.jsx';
 import ResultsPanel from './ResultsPanel.jsx';
-import { acceptMission, completeMission, depositToReserve, TEMPLATES } from '../../neighborhood/missions.js';
+import {
+  acceptMission, completeMission, depositToReserve, repayDebt, takeShift, viewSipSimulation, missionStateOf, TEMPLATES, SHIFT_PAY,
+} from '../../neighborhood/missions.js';
 import { analyseRun } from '../../neighborhood/analysis.js';
 import {
   DEFAULT_PITCH, DEFAULT_CONTROLS, loadControls, saveControls, applyLook, stickVector,
@@ -108,6 +110,29 @@ function baseDialogFor(id, w) {
 function missionOptionsFor(id, w) {
   const active = w.mission?.active;
   if (!active) return [];
+  if (id === 'ravi' && active.templateId === 'earn-shift') {
+    return [{
+      label: `Take the second shift (+${inr(SHIFT_PAY)})`,
+      hint: 'Paid straight into cash. Completes the mission.',
+      run: takeShift,
+    }];
+  }
+  if (id === 'bank' && active.templateId === 'repay-debt') {
+    const pay = Math.min(w.cash, w.debt);
+    return [{
+      label: `Repay ${inr(pay)} of your debt`,
+      hint: `Debt goes from ${inr(w.debt)} to ${inr(w.debt - pay)}. Completes the mission.`,
+      run: repayDebt,
+      disabled: pay <= 0,
+    }];
+  }
+  if (id === 'bank' && active.templateId === 'sip-simulation') {
+    return [{
+      label: 'See the SIP simulation',
+      hint: 'Simulated only. No money moves. Completes the mission.',
+      run: viewSipSimulation,
+    }];
+  }
   if (id === 'bank' && active.templateId === 'build-reserve') {
     return [{
       label: `Deposit ${inr(REPAIR_COST)} into savings`,
@@ -286,7 +311,11 @@ export default function NeighborhoodGame({ onExit }) {
               <Stat label="Aura" value={wallet.aura} />
             </div>
             <p className="mt-2 text-xs font-bold text-slate-700">{MISSION[wallet.step]}</p>
-            <MissionCard mission={wallet.mission?.active} onGet={getMission} />
+            <MissionCard
+              mission={missionStateOf(wallet).active}
+              last={missionStateOf(wallet).results?.at(-1)}
+              onGet={getMission}
+            />
           </div>
           <button
             type="button"
@@ -388,19 +417,24 @@ export default function NeighborhoodGame({ onExit }) {
 }
 
 /** Side mission board: shows the one active side mission, or offers a new one. */
-function MissionCard({ mission, onGet }) {
+function MissionCard({ mission, last, onGet }) {
   if (!mission) {
     return (
-      <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-200 pt-2">
-        <span className="text-xs font-bold text-slate-600">No side mission</span>
-        <button type="button" onClick={onGet} className="rounded-lg bg-purple-600 px-2 py-1 text-xs font-black text-white">Get one</button>
+      <div className="mt-2 border-t border-slate-200 pt-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-bold text-slate-600">No side mission</span>
+          <button type="button" onClick={onGet} className="rounded-lg bg-purple-600 px-2 py-1 text-xs font-black text-white">Get one</button>
+        </div>
+        {last && <p className="mt-1 text-[11px] text-slate-600">Last: {last.title}. Cash {inr(last.before.cash)} → {inr(last.after.cash)}.</p>}
       </div>
     );
   }
   const place = POIS.find((p) => p.id === TEMPLATES[mission.templateId]?.where);
   return (
     <div className="mt-2 border-t border-slate-200 pt-2">
-      <p className="text-[10px] font-black uppercase tracking-wider text-purple-700">{mission.category} · +{mission.reward} Aura</p>
+      <p className="text-[10px] font-black uppercase tracking-wider text-purple-700">
+        {mission.category} · {mission.difficulty} · about {mission.minutes} min · +{mission.reward} Aura
+      </p>
       <p className="text-xs font-black text-slate-900">{mission.title}</p>
       <p className="text-xs text-slate-700">{mission.objective}{place ? ` Go to ${place.label}.` : ''}</p>
     </div>

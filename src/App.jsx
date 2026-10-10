@@ -8,8 +8,9 @@ import NgoDashboard from './components/NgoDashboard';
 import VoiceCompanion from './components/VoiceCompanion';
 import BlindMode from './components/BlindMode';
 const LifeMode = lazy(() => import('./components/life/LifeMode'));
+const NeighborhoodGame = lazy(() => import('./components/world/NeighborhoodGame'));
 import translations from './data/translations';
-import { Mic, Eye, Gamepad2, ArrowRight } from 'lucide-react';
+import { Mic, Eye, Gamepad2, ArrowRight, Box } from 'lucide-react';
 
 function App() {
   const envKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -59,7 +60,7 @@ function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
       if (e.target.isContentEditable) return;
 
-      if (e.code === 'Space' && !e.repeat && state !== 'BLIND_MODE' && state !== 'LIFE') {
+      if (e.code === 'Space' && !e.repeat && state !== 'BLIND_MODE' && state !== 'LIFE' && state !== 'NEIGHBORHOOD') {
         e.preventDefault();
         setState('BLIND_MODE');
       }
@@ -96,6 +97,13 @@ function App() {
             {t.appName}
           </button>
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+            <button
+              onClick={() => setState('NEIGHBORHOOD')}
+              aria-current={state === 'NEIGHBORHOOD' ? 'page' : undefined}
+              className={`flex items-center gap-2 text-sm font-bold px-3 py-1.5 rounded-lg transition-colors ${state === 'NEIGHBORHOOD' ? 'bg-sky-600 text-white' : 'bg-sky-50 text-sky-800 hover:bg-sky-100'}`}
+            >
+              <Box size={16} aria-hidden="true" /> <span className="sr-only sm:not-sr-only">3D World</span>
+            </button>
             <button
               onClick={() => setState('LIFE')}
               aria-current={state === 'LIFE' ? 'page' : undefined}
@@ -162,6 +170,11 @@ function App() {
         {state === 'LIFE' && (
           <Suspense fallback={<p className="p-12 text-center font-bold text-slate-500" role="status">Loading Life Mode…</p>}>
             <LifeMode onExit={() => setState(apiKey ? 'ONBOARDING' : 'SETUP')} onLearn={() => setState('ONBOARDING')} />
+          </Suspense>
+        )}
+        {state === 'NEIGHBORHOOD' && (
+          <Suspense fallback={<p className="p-12 text-center font-bold text-slate-500" role="status">Loading the neighborhood…</p>}>
+            <NeighborhoodGame onExit={() => setState(apiKey ? 'ONBOARDING' : 'SETUP')} />
           </Suspense>
         )}
         {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => setState('ONBOARDING')} />}

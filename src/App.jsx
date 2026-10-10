@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Setup from './components/Setup';
 import Onboarding from './components/Onboarding';
 import Assessment from './components/Assessment';
@@ -7,8 +7,9 @@ import Report from './components/Report';
 import NgoDashboard from './components/NgoDashboard';
 import VoiceCompanion from './components/VoiceCompanion';
 import BlindMode from './components/BlindMode';
+const LifeMode = lazy(() => import('./components/life/LifeMode'));
 import translations from './data/translations';
-import { Mic, Eye, Globe } from 'lucide-react';
+import { Mic, Eye, Gamepad2, ArrowRight } from 'lucide-react';
 
 function App() {
   const envKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -58,7 +59,7 @@ function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
       if (e.target.isContentEditable) return;
 
-      if (e.code === 'Space' && !e.repeat && state !== 'BLIND_MODE') {
+      if (e.code === 'Space' && !e.repeat && state !== 'BLIND_MODE' && state !== 'LIFE') {
         e.preventDefault();
         setState('BLIND_MODE');
       }
@@ -94,7 +95,14 @@ function App() {
             </div>
             {t.appName}
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+            <button
+              onClick={() => setState('LIFE')}
+              aria-current={state === 'LIFE' ? 'page' : undefined}
+              className={`flex items-center gap-2 text-sm font-bold px-3 py-1.5 rounded-lg transition-colors ${state === 'LIFE' ? 'bg-teal-600 text-white' : 'bg-teal-50 text-teal-800 hover:bg-teal-100'}`}
+            >
+              <Gamepad2 size={16} aria-hidden="true" /> <span className="sr-only sm:not-sr-only">{t.lifeMode}</span>
+            </button>
             {/* Language Selector */}
             <div className="flex bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
               {Object.entries(langLabels).map(([code, label]) => (
@@ -132,11 +140,30 @@ function App() {
 
       <main className="relative">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] pointer-events-none"></div>
-        {state === 'SETUP' && <Setup onComplete={handleSetupComplete} t={t} />}
+        {state === 'SETUP' && <Setup onComplete={handleSetupComplete} onLifeMode={() => setState('LIFE')} t={t} />}
+        {state === 'ONBOARDING' && (
+          <div className="max-w-4xl mx-auto px-6 pt-6">
+            <button
+              onClick={() => setState('LIFE')}
+              className="w-full flex items-center justify-between gap-4 text-left rounded-2xl border-2 border-teal-200 bg-teal-50 px-5 py-4 hover:border-teal-400 transition-colors"
+            >
+              <span>
+                <span className="block font-black text-teal-900">{t.lifeModeTitle}</span>
+                <span className="block text-sm text-teal-800">{t.lifeModeDesc}</span>
+              </span>
+              <span className="shrink-0 flex items-center gap-1 font-bold text-teal-800">{t.lifeModeCta} <ArrowRight size={18} /></span>
+            </button>
+          </div>
+        )}
         {state === 'ONBOARDING' && <Onboarding onComplete={handleOnboardingComplete} t={t} />}
         {state === 'ASSESSMENT' && <Assessment apiKey={apiKey} onComplete={handleAssessmentComplete} t={t} />}
         {state === 'GAME' && <Game apiKey={apiKey} profile={profile} assessmentScore={assessmentScore} onComplete={handleGameComplete} />}
         {state === 'REPORT' && <Report data={gameData} onRestart={resetToStart} t={t} />}
+        {state === 'LIFE' && (
+          <Suspense fallback={<p className="p-12 text-center font-bold text-slate-500" role="status">Loading Life Mode…</p>}>
+            <LifeMode onExit={() => setState(apiKey ? 'ONBOARDING' : 'SETUP')} onLearn={() => setState('ONBOARDING')} />
+          </Suspense>
+        )}
         {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => setState('ONBOARDING')} />}
       </main>
     </div>

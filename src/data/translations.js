@@ -3,6 +3,11 @@ const translations = {
   en: {
     // Header
     appName: "PaisaPath",
+    lifeMode: "Life Mode",
+    lifeModeTitle: "New: PaisaPath Life Mode",
+    lifeModeDesc: "Live a few months of a student's financial life. Fictional money, real lessons. Works without AI.",
+    lifeModeCta: "Play Life Mode",
+    setupSkip: "Continue without AI (offline lessons)",
     audioMode: "Accessible Audio Mode",
     voiceLevel: "Voice Level",
     ngoLogin: "NGO Login",
@@ -82,6 +87,11 @@ const translations = {
   },
   hi: {
     appName: "पैसापथ",
+    lifeMode: "लाइफ मोड",
+    lifeModeTitle: "नया: पैसापथ लाइफ मोड",
+    lifeModeDesc: "एक छात्र की आर्थिक ज़िंदगी के कुछ महीने जिएँ। काल्पनिक पैसा, असली सबक। (खेल अभी अंग्रेज़ी में है)",
+    lifeModeCta: "लाइफ मोड खेलें",
+    setupSkip: "AI के बिना जारी रखें (ऑफ़लाइन पाठ)",
     audioMode: "सुलभ ऑडियो मोड",
     voiceLevel: "वॉइस लेवल",
     ngoLogin: "NGO लॉगिन",
@@ -156,6 +166,11 @@ const translations = {
   },
   te: {
     appName: "పైసాపాత్",
+    lifeMode: "లైఫ్ మోడ్",
+    lifeModeTitle: "కొత్తది: పైసాపాత్ లైఫ్ మోడ్",
+    lifeModeDesc: "ఒక విద్యార్థి ఆర్థిక జీవితంలో కొన్ని నెలలు గడపండి. కల్పిత డబ్బు, నిజమైన పాఠాలు. (ఆట ప్రస్తుతం ఇంగ్లీష్‌లో ఉంది)",
+    lifeModeCta: "లైఫ్ మోడ్ ఆడండి",
+    setupSkip: "AI లేకుండా కొనసాగండి (ఆఫ్‌లైన్ పాఠాలు)",
     audioMode: "ఆడియో మోడ్",
     voiceLevel: "వాయిస్ లెవెల్",
     ngoLogin: "NGO లాగిన్",

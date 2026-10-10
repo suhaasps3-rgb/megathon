@@ -115,7 +115,7 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
       const newWallet = prev + netChange;
       let reply = result.companionResponse;
       if (offline) {
-        reply = offlineReply(result.actions, newWallet);
+        reply = offlineReply(result.actions || [], newWallet, transcript);
       } else if (netChange !== 0) {
         reply += ` Your new balance is ${newWallet} rupees.`;
       }

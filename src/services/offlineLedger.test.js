@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseOffline, offlineReply } from './offlineLedger.js';
+import { parseOffline, offlineReply, parseAmount, answerQuestion, topicOf, sipValue } from './offlineLedger.js';
 
 describe('parseOffline', () => {
   it('reads a simple expense with a label', () => {
@@ -28,5 +28,56 @@ describe('offlineReply', () => {
 
   it('gives an example when nothing was understood', () => {
     expect(offlineReply([], 1000)).toContain('I spent 120 on lunch');
+    expect(offlineReply([], 1000, 'who won the cricket match')).toContain('offline mode');
+  });
+
+  it('answers the buy-a-cycle-or-SIP question with the player\'s own number', () => {
+    const q = 'I have to buy a cycle for thousand rupees or I can invest this amount in an sip what do you think is better';
+    const reply = offlineReply(parseOffline(q).actions, 1000, q);
+    expect(reply).toContain('cycle');
+    expect(reply).toContain('SIP');
+    expect(reply).toContain('₹1,000');
+    expect(reply).toContain('Simulated only');
+    expect(reply).not.toContain('I can log money');
+  });
+});
+
+describe('questions are not transactions', () => {
+  it('does not log a plan or question as spending', () => {
+    expect(parseOffline('should I buy a cycle for 1000?').actions).toEqual([]);
+    expect(parseOffline('I have to buy a cycle for thousand rupees or invest in a sip').actions).toEqual([]);
+  });
+
+  it('still logs a statement of what happened', () => {
+    expect(parseOffline('I bought a cycle for 1000').actions).toEqual([{ type: 'expense', amount: 1000, label: 'Cycle' }]);
+  });
+});
+
+describe('parseAmount', () => {
+  it('reads digits, shorthand and words', () => {
+    expect(parseAmount('₹1,200')).toBe(1200);
+    expect(parseAmount('2k')).toBe(2000);
+    expect(parseAmount('1.5 lakh')).toBe(150000);
+    expect(parseAmount('thousand rupees')).toBe(1000);
+    expect(parseAmount('two thousand')).toBe(2000);
+    expect(parseAmount('five hundred')).toBe(500);
+    expect(parseAmount('no money here')).toBeNull();
+  });
+});
+
+describe('answerQuestion', () => {
+  it('covers the core topics with labelled simulations', () => {
+    expect(topicOf('what is a sip')).toBe('sip');
+    expect(answerQuestion('what is a sip', 1000)).toContain('Simulated only');
+    expect(topicOf('someone asked for my OTP')).toBe('scam');
+    expect(topicOf('how do I budget my pocket money')).toBe('budget');
+    expect(topicOf('is a credit card loan bad')).toBe('borrow');
+    expect(answerQuestion('tell me about cricket', 1000)).toBeNull();
+  });
+
+  it('computes SIP growth correctly', () => {
+    // ₹500 a month for 5 years at 8%: about ₹36,983 (start-of-month contributions).
+    expect(Math.round(sipValue(500, 5))).toBeGreaterThan(36900);
+    expect(Math.round(sipValue(500, 5))).toBeLessThan(37100);
   });
 });

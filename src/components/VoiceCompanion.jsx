@@ -17,6 +17,11 @@ export default function VoiceCompanion({ apiKey, onComplete }) {
   const [companionReply, setCompanionReply] = useState("Hey! I'm your PaisaPath Mentor. Ask me any financial question, or tell me what you spent your pocket money on today so I can track your ledger.");
 
   const recognitionRef = useRef(null);
+  // Speech results arrive in a callback created once, so it reads the latest handler and
+  // balance through refs. Without this, a spoken message used stale state and could wipe the ledger.
+  const submitRef = useRef(null);
+  const walletRef = useRef(wallet);
+  walletRef.current = wallet;
   const [hasVoiceSupport, setHasVoiceSupport] = useState(false);
 
   useEffect(() => {
@@ -34,7 +39,7 @@ export default function VoiceCompanion({ apiKey, onComplete }) {
           if (event.results[i].isFinal) {
             const finalTranscript = event.results[i][0].transcript;
             setTranscript(finalTranscript);
-            handleInputSubmit(finalTranscript);
+            submitRef.current?.(finalTranscript);
           } else {
             interim += event.results[i][0].transcript;
             setTranscript(interim);
@@ -83,10 +88,13 @@ export default function VoiceCompanion({ apiKey, onComplete }) {
       });
     }
 
-    setLedger([...ledger, ...newLedgerItems]);
-    setWallet(prev => prev + netChange);
+    const newBalance = walletRef.current + netChange;
+    setLedger((prev) => [...prev, ...newLedgerItems]);
+    setWallet((prev) => prev + netChange);
 
-    const reply = offline ? offlineReply(result.actions, wallet + netChange) : result.companionResponse;
+    const reply = offline
+      ? offlineReply(result.actions || [], newBalance, input)
+      : result.companionResponse || offlineReply(result.actions || [], newBalance, input);
     setCompanionReply(reply);
     setProcessing(false);
     setTextInput('');
@@ -100,6 +108,8 @@ export default function VoiceCompanion({ apiKey, onComplete }) {
       window.speechSynthesis.speak(utterance);
     }
   };
+
+  submitRef.current = handleInputSubmit;
 
   // Stop talking if they exit the module
   const handleExit = () => {

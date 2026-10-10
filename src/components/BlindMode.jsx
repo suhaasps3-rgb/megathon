@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { parseVoiceAllocation } from '../services/llm';
 
-export default function BlindMode({ apiKey, lang, t, onExit }) {
+export default function BlindMode({ aiEnabled, lang, t, onExit }) {
   const [wallet, setWallet] = useState(1000);
   const [isListening, setIsListening] = useState(false);
   const [message, setMessage] = useState(t.blindWelcome);
@@ -93,8 +93,8 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
   };
 
   const processInput = async (transcript) => {
-    if (!apiKey) {
-      const errorMsg = "API Key is missing. Please press Escape to exit and enter your key in the setup screen.";
+    if (!aiEnabled) {
+      const errorMsg = "The voice companion needs AI, which is offline right now. Press Escape to go back to the lessons.";
       setMessage(errorMsg);
       speak(errorMsg);
       return;
@@ -102,7 +102,7 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
 
     setMessage(t.processing);
     
-    const result = await parseVoiceAllocation(apiKey, transcript, lang);
+    const result = await parseVoiceAllocation(transcript, lang);
     
     let netChange = 0;
     if (result.actions && Array.isArray(result.actions)) {

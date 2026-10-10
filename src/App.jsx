@@ -9,13 +9,16 @@ import VoiceCompanion from './components/VoiceCompanion';
 import BlindMode from './components/BlindMode';
 const LifeMode = lazy(() => import('./components/life/LifeMode'));
 import translations from './data/translations';
+import { checkAiAvailable } from './services/llm';
 import { Mic, Eye, Gamepad2, ArrowRight } from 'lucide-react';
 
 function App() {
-  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
-  
-  const [state, setState] = useState(envKey ? 'ONBOARDING' : 'SETUP'); 
-  const [apiKey, setApiKey] = useState(envKey || '');
+  const [state, setState] = useState('SETUP'); 
+  // null while checking; true when the server proxy has a Gemini key.
+  const [aiAvailable, setAiAvailable] = useState(null);
+  const [offlineChosen, setOfflineChosen] = useState(false);
+  const [started, setStarted] = useState(false);
+  const aiEnabled = aiAvailable === true && !offlineChosen;
   const [profile, setProfile] = useState(null);
   const [assessmentScore, setAssessmentScore] = useState(0);
   const [gameData, setGameData] = useState(null);
@@ -26,8 +29,17 @@ function App() {
 
   const langLabels = { en: 'EN', hi: 'हि', te: 'తె' };
 
-  const handleSetupComplete = (key) => {
-    setApiKey(key);
+  useEffect(() => {
+    let cancelled = false;
+    checkAiAvailable().then((available) => {
+      if (!cancelled) setAiAvailable(available);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleSetupComplete = (useAi) => {
+    setOfflineChosen(!useAi);
+    setStarted(true);
     setState('ONBOARDING');
   };
 
@@ -74,7 +86,7 @@ function App() {
   }
 
   if (state === 'BLIND_MODE') {
-    return <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => setState('ONBOARDING')} />;
+    return <BlindMode aiEnabled={aiEnabled} lang={lang} t={t} onExit={() => setState('ONBOARDING')} />;
   }
 
   return (
@@ -140,7 +152,7 @@ function App() {
 
       <main className="relative">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] pointer-events-none"></div>
-        {state === 'SETUP' && <Setup onComplete={handleSetupComplete} onLifeMode={() => setState('LIFE')} t={t} />}
+        {state === 'SETUP' && <Setup aiAvailable={aiAvailable} onComplete={handleSetupComplete} onLifeMode={() => setState('LIFE')} t={t} />}
         {state === 'ONBOARDING' && (
           <div className="max-w-4xl mx-auto px-6 pt-6">
             <button
@@ -156,15 +168,15 @@ function App() {
           </div>
         )}
         {state === 'ONBOARDING' && <Onboarding onComplete={handleOnboardingComplete} t={t} />}
-        {state === 'ASSESSMENT' && <Assessment apiKey={apiKey} onComplete={handleAssessmentComplete} t={t} />}
-        {state === 'GAME' && <Game apiKey={apiKey} profile={profile} assessmentScore={assessmentScore} onComplete={handleGameComplete} />}
+        {state === 'ASSESSMENT' && <Assessment aiEnabled={aiEnabled} onComplete={handleAssessmentComplete} t={t} />}
+        {state === 'GAME' && <Game aiEnabled={aiEnabled} profile={profile} assessmentScore={assessmentScore} onComplete={handleGameComplete} />}
         {state === 'REPORT' && <Report data={gameData} onRestart={resetToStart} t={t} />}
         {state === 'LIFE' && (
           <Suspense fallback={<p className="p-12 text-center font-bold text-slate-500" role="status">Loading Life Mode…</p>}>
-            <LifeMode onExit={() => setState(apiKey ? 'ONBOARDING' : 'SETUP')} onLearn={() => setState('ONBOARDING')} />
+            <LifeMode onExit={() => setState(started ? 'ONBOARDING' : 'SETUP')} onLearn={() => setState('ONBOARDING')} />
           </Suspense>
         )}
-        {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => setState('ONBOARDING')} />}
+        {state === 'VOICE' && <VoiceCompanion aiEnabled={aiEnabled} lang={lang} t={t} onComplete={() => setState('ONBOARDING')} />}
       </main>
     </div>
   );

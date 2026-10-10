@@ -39,9 +39,11 @@ const translations = {
     
     // Setup
     setupTitle: "Welcome to PaisaPath",
-    setupSubtitle: "To power the dynamic AI engine, please provide a Gemini API Key.",
-    setupKeyLabel: "Gemini API Key",
-    setupLaunch: "Launch Engine",
+    setupSubtitle: "Learn to budget, save, invest and stay safe by making real money choices.",
+    setupStart: "Start learning",
+    setupChecking: "Getting your lessons ready…",
+    setupAiReady: "AI-personalised lessons are on",
+    setupOfflineReady: "Offline lessons are ready",
 
     // Assessment
     assmSync: "Initial Sync",
@@ -121,9 +123,11 @@ const translations = {
 
     // Setup
     setupTitle: "पैसापथ में स्वागत है",
-    setupSubtitle: "डायनेमिक AI इंजन को पावर देने के लिए, कृपया Gemini API कुंजी प्रदान करें।",
-    setupKeyLabel: "Gemini API कुंजी",
-    setupLaunch: "इंजन लॉन्च करें",
+    setupSubtitle: "असली पैसों के फ़ैसले लेकर बजट, बचत, निवेश और सुरक्षित रहना सीखें।",
+    setupStart: "सीखना शुरू करें",
+    setupChecking: "आपके पाठ तैयार हो रहे हैं…",
+    setupAiReady: "AI-व्यक्तिगत पाठ चालू हैं",
+    setupOfflineReady: "ऑफ़लाइन पाठ तैयार हैं",
 
     // Assessment
     assmSync: "प्रारंभिक सिंक",
@@ -200,9 +204,11 @@ const translations = {
 
     // Setup
     setupTitle: "పైసాపాత్‌కు స్వాగతం",
-    setupSubtitle: "డైనమిక్ AI ఇంజిన్‌ను పవర్ చేయడానికి, దయచేసి జెమిని API కీని అందించండి.",
-    setupKeyLabel: "జెమిని API కీ",
-    setupLaunch: "ఇంజిన్‌ను ప్రారంభించండి",
+    setupSubtitle: "నిజమైన డబ్బు నిర్ణయాలు తీసుకుంటూ బడ్జెట్, పొదుపు, పెట్టుబడి మరియు సురక్షితంగా ఉండటం నేర్చుకోండి.",
+    setupStart: "నేర్చుకోవడం ప్రారంభించండి",
+    setupChecking: "మీ పాఠాలు సిద్ధమవుతున్నాయి…",
+    setupAiReady: "AI-వ్యక్తిగత పాఠాలు ఆన్‌లో ఉన్నాయి",
+    setupOfflineReady: "ఆఫ్‌లైన్ పాఠాలు సిద్ధంగా ఉన్నాయి",
 
     // Assessment
     assmSync: "ప్రారంభ సింక్",

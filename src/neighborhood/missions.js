@@ -69,6 +69,17 @@ export const TEMPLATES = Object.freeze({
     minutes: 4,
     eligible: () => true,
   },
+  'skip-want': {
+    id: 'skip-want',
+    category: 'Needs versus wants',
+    title: 'Skip an unnecessary purchase',
+    objective: 'At the Corner Store, walk past the headphones and keep your cash for a goal.',
+    where: 'store',
+    reward: 15,
+    difficulty: 'Easy',
+    minutes: 2,
+    eligible: (w) => w.cash >= 900,
+  },
   'cost-check': {
     id: 'cost-check',
     category: 'Budgeting and spending',
@@ -82,7 +93,7 @@ export const TEMPLATES = Object.freeze({
 });
 
 /** Order of preference when more than one template fits. Debt comes first when there is some. */
-const PRIORITY = ['repay-debt', 'build-reserve', 'earn-shift', 'compare-prices', 'sip-simulation', 'cost-check'];
+const PRIORITY = ['repay-debt', 'build-reserve', 'earn-shift', 'compare-prices', 'skip-want', 'sip-simulation', 'cost-check'];
 
 /** The mission state on the wallet. Older saves without one read as empty. */
 export function missionStateOf(w) {

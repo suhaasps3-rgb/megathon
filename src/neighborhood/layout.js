@@ -17,6 +17,7 @@ export const OBSTACLES = [
   { id: 'chai-cart', x: -3, z: 2.3, hx: 1, hz: 0.7, h: 1.4, color: '#a78bfa', kind: 'cart' },
   { id: 'flat-east', x: 12, z: 4, hx: 2, hz: 2, h: 5, color: '#f472b6', kind: 'flat' },
   { id: 'flat-west', x: -13, z: -1, hx: 2, hz: 2.5, h: 4, color: '#facc15', kind: 'flat' },
+  { id: 'store', x: 0, z: 13, hx: 2, hz: 1.2, h: 2.6, color: '#fb923c', kind: 'shop' },
   { id: 'tree-1', x: 4, z: 2, hx: 0.4, hz: 0.4, h: 2.2, color: '#16a34a', kind: 'tree' },
   { id: 'tree-2', x: -5, z: -1, hx: 0.4, hz: 0.4, h: 2.2, color: '#16a34a', kind: 'tree' },
   { id: 'tree-3', x: 11, z: -1.5, hx: 0.4, hz: 0.4, h: 2.2, color: '#16a34a', kind: 'tree' },
@@ -28,4 +29,5 @@ export const POIS = [
   { id: 'cycle', label: 'Cycle Mart', place: 'Bike shop', x: 8, z: -3.4, color: '#10b981' },
   { id: 'bank', label: 'ATM', place: 'Bank', x: 0, z: -7.1, color: '#3b82f6' },
   { id: 'chai', label: 'Chaiwala', place: 'Chai cart', x: -3, z: 3.6, color: '#8b5cf6' },
+  { id: 'store', label: 'Corner Store', place: 'Groceries', x: 0, z: 10.4, color: '#f97316' },
 ];

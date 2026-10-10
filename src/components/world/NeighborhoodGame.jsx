@@ -10,6 +10,7 @@ import {
   DEFAULT_PITCH, DEFAULT_CONTROLS, loadControls, saveControls, applyLook, stickVector,
 } from '../../neighborhood/controls.js';
 import { POIS } from '../../neighborhood/layout.js';
+import { SHOPS, buyItem } from '../../neighborhood/shops.js';
 import {
   BIKE_PRICE, SAVE_AMOUNT, REPAIR_COST, CHAI_PRICE, DELIVERY_PAY,
   payDelivery, buyBikeNow, saveInsteadOfBike, payRepair, projectSavings, loadWallet, saveWallet,
@@ -34,7 +35,21 @@ const inr = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
  * What the player can do at each place right now. Each option names its consequence before
  * the player picks it, and its `run` is one of the pure rules in economy.js.
  */
+function shopDialogFor(shop, w) {
+  return {
+    speaker: `${shop.name} · Groceries`,
+    lines: [shop.greeting],
+    options: shop.items.map((item) => ({
+      label: `Buy ${item.label}: ${inr(item.price)}`,
+      hint: w.cash >= item.price ? `Cash left ${inr(w.cash - item.price)}` : `You need ${inr(item.price)} in cash`,
+      run: (x) => buyItem(x, shop.id, item.id),
+      disabled: w.cash < item.price,
+    })),
+  };
+}
+
 function baseDialogFor(id, w) {
+  if (id === 'store') return shopDialogFor(SHOPS.grocery, w);
   if (id === 'ravi') {
     if (w.step !== 'deliver') {
       return { speaker: 'Ravi · Gully Market', lines: ['Thanks for the help, yaar. Check out the Cycle Mart next.'], options: [] };
@@ -139,6 +154,13 @@ function missionOptionsFor(id, w) {
       hint: w.cash >= REPAIR_COST ? `Cash left ${inr(w.cash - REPAIR_COST)}. Completes the mission.` : `You need ${inr(REPAIR_COST)} in cash`,
       run: depositToReserve,
       disabled: w.cash < REPAIR_COST,
+    }];
+  }
+  if (id === 'store' && active.templateId === 'skip-want') {
+    return [{
+      label: 'Walk past the headphones',
+      hint: 'Keep the cash. Completes the mission.',
+      run: (x) => completeMission(x, 'skip-want'),
     }];
   }
   if (id === 'chai' && active.templateId === 'cost-check') {

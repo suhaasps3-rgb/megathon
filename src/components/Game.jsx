@@ -4,7 +4,7 @@ import { Wallet, Info, ChevronRight, Sparkles, AlertTriangle, Clock, Activity, T
 import { scenarios as staticScenarios } from '../data/scenarios';
 import { generateDynamicScenario } from '../services/llm';
 
-export default function Game({ apiKey, profile, assessmentScore, onComplete }) {
+export default function Game({ aiEnabled, profile, assessmentScore, onComplete }) {
   const [scenario, setScenario] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -19,7 +19,8 @@ export default function Game({ apiKey, profile, assessmentScore, onComplete }) {
   useEffect(() => {
     async function loadScenario() {
       try {
-        const dynamicScenario = await generateDynamicScenario(apiKey, profile, assessmentScore);
+        if (!aiEnabled) throw new Error('AI not available');
+        const dynamicScenario = await generateDynamicScenario(profile, assessmentScore);
         setScenario(dynamicScenario);
       } catch (err) {
         console.error("LLM Generation failed, using fallback:", err);
@@ -31,7 +32,7 @@ export default function Game({ apiKey, profile, assessmentScore, onComplete }) {
       }
     }
     loadScenario();
-  }, [apiKey, profile, assessmentScore]);
+  }, [aiEnabled, profile, assessmentScore]);
 
   if (loading) {
     return (

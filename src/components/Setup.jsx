@@ -1,17 +1,21 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { KeyRound, Sparkles } from 'lucide-react';
+import { Sparkles, WifiOff, Loader2 } from 'lucide-react';
 
-export default function Setup({ onComplete, onLifeMode, t }) {
-  const [key, setKey] = useState('');
+// Welcome screen. Students never handle an API key: the AI runs through the
+// server proxy when it is configured, and the offline lessons run otherwise.
+// aiAvailable is null while the server is being checked.
+export default function Setup({ aiAvailable, onComplete, onLifeMode, t }) {
+  const T = t || {};
 
-  const T = t || {
-    setupTitle: "Welcome to PaisaPath",
-    setupSubtitle: "To power the dynamic AI engine, please provide a Gemini API Key.",
-    setupKeyLabel: "Gemini API Key",
-    setupLaunch: "Launch Engine"
-  };
-  
+  const status =
+    aiAvailable === null
+      ? { icon: Loader2, text: T.setupChecking || 'Getting your lessons ready…', className: 'text-slate-500', spin: true }
+      : aiAvailable
+        ? { icon: Sparkles, text: T.setupAiReady || 'AI-personalised lessons are on', className: 'text-purple-700' }
+        : { icon: WifiOff, text: T.setupOfflineReady || 'Offline lessons are ready', className: 'text-teal-700' };
+  const StatusIcon = status.icon;
+
   return (
     <div className="min-h-[80vh] flex items-center justify-center p-6">
       <motion.div 
@@ -22,36 +26,31 @@ export default function Setup({ onComplete, onLifeMode, t }) {
         <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-teal-400 rounded-2xl flex items-center justify-center mb-6 mx-auto shadow-lg">
           <Sparkles className="text-white" size={32} />
         </div>
-        <h2 className="text-3xl font-black text-center text-slate-800 mb-2">{T.setupTitle}</h2>
-        <p className="text-center text-slate-500 mb-8 font-medium">{T.setupSubtitle}</p>
-        
+        <h2 className="text-3xl font-black text-center text-slate-800 mb-2">{T.setupTitle || 'Welcome to PaisaPath'}</h2>
+        <p className="text-center text-slate-500 mb-6 font-medium">
+          {T.setupSubtitle || 'Learn to budget, save, invest and stay safe by making real money choices.'}
+        </p>
+
+        <p role="status" className={`flex items-center justify-center gap-2 text-sm font-bold mb-6 ${status.className}`}>
+          <StatusIcon size={16} className={status.spin ? 'animate-spin' : undefined} aria-hidden="true" />
+          {status.text}
+        </p>
+
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">{T.setupKeyLabel}</label>
-            <div className="relative">
-              <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-              <input 
-                type="password" 
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 outline-none transition-all font-mono"
-                placeholder="AIzaSy..."
-              />
-            </div>
-          </div>
           <button 
-            onClick={() => onComplete(key)}
-            disabled={!key}
-            className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+            onClick={() => onComplete(true)}
+            className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-all flex justify-center items-center gap-2"
           >
-            {T.setupLaunch}
+            {T.setupStart || 'Start learning'}
           </button>
-          <button
-            onClick={() => onComplete('')}
-            className="w-full text-sm font-bold text-slate-600 py-2 rounded-xl hover:bg-slate-100 transition-all"
-          >
-            {T.setupSkip || 'Continue without AI (offline lessons)'}
-          </button>
+          {aiAvailable && (
+            <button
+              onClick={() => onComplete(false)}
+              className="w-full text-sm font-bold text-slate-600 py-2 rounded-xl hover:bg-slate-100 transition-all"
+            >
+              {T.setupSkip || 'Continue without AI (offline lessons)'}
+            </button>
+          )}
           {onLifeMode && (
             <button
               onClick={onLifeMode}

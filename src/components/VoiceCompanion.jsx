@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Check, X, ShieldAlert, Sparkles, Send, Calculator, Volume2, VolumeX } from 'lucide-react';
 import { parseVoiceAllocation } from '../services/llm';
 
-export default function VoiceCompanion({ apiKey, onComplete }) {
+export default function VoiceCompanion({ aiEnabled, onComplete }) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [textInput, setTextInput] = useState('');
@@ -60,14 +60,14 @@ export default function VoiceCompanion({ apiKey, onComplete }) {
     setProcessing(true);
     setTranscript(input);
     
-    if (!apiKey) {
-      setCompanionReply("Debug Error: API Key is missing! Please return to setup and enter your Gemini API Key.");
+    if (!aiEnabled) {
+      setCompanionReply("The voice companion needs AI, which is offline right now. You can still play the lessons and Life Mode.");
       setProcessing(false);
       return;
     }
 
     // Parse using LLM
-    const result = await parseVoiceAllocation(apiKey, input);
+    const result = await parseVoiceAllocation(input);
     
     let netChange = 0;
     const newLedgerItems = [];

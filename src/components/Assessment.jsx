@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, ChevronRight, Loader2, Sparkles, ShoppingBag, Pizza, PiggyBank, Rocket } from 'lucide-react';
 import { assessUnderstanding } from '../services/llm';
 
-export default function Assessment({ apiKey, onComplete, t }) {
+export default function Assessment({ aiEnabled, onComplete, t }) {
   const [selected, setSelected] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -62,7 +62,8 @@ export default function Assessment({ apiKey, onComplete, t }) {
     const contextStr = `The user chose to: ${option.title} - ${option.desc}`;
     
     try {
-      const assessment = await assessUnderstanding(apiKey, contextStr);
+      if (!aiEnabled) throw new Error('AI not available');
+      const assessment = await assessUnderstanding(contextStr);
       setResult(assessment);
     } catch (err) {
       console.error(err);

@@ -10,9 +10,9 @@ No shadcn/ui or other component library; shared styles live in `src/index.css` a
 | Route | Component | Status |
 | --- | --- | --- |
 | HOME | `components/Home.jsx` | Redesigned in the design pass. Real progress shown. |
-| ONBOARDING | `components/Onboarding.jsx` | Not yet reviewed in the design pass. |
-| ASSESSMENT | `components/Assessment.jsx` | Uses Gemini or offline fallback. Not yet reviewed. |
-| GAME (Learn mode) | `components/Game.jsx` | Not yet reviewed. |
+| ONBOARDING | `components/Onboarding.jsx` | **Done.** Three labelled steps with a progress indicator, Back that keeps choices, inline name validation, disabled Continue with a stated reason (it was an invisible but clickable button before), `aria-pressed` choices, focus moves to each step heading, summary before starting, translated (en, hi, te). Checked at 1280 and 390 widths. |
+| ASSESSMENT | `components/Assessment.jsx` | **Done.** Announced loading and result, a stated notice (not a silent swap) when the AI cannot be reached, offline read when there is no key, "Change my answer", stale-answer guard. Checked at 1280 and 390 widths. |
+| GAME (Learn mode) | `components/Game.jsx` | Not yet reviewed. Known: with no key it still tries an AI call before falling back, which logs console errors. |
 | REPORT | `components/Report.jsx` | Not yet reviewed. |
 | LIFE | `components/life/LifeMode.jsx` (+ Hud, Room, ScenarioView, FutureLab, LifeReport) | Has its own `prefers-reduced-motion` handling. HUD not yet reviewed. |
 | NEIGHBORHOOD (3D world) | `components/world/NeighborhoodGame.jsx`, `World.jsx`, `ResultsPanel.jsx` | Results and controls redesigned. Mission card and shop dialogue added. HUD still a single overlay. |
@@ -46,12 +46,13 @@ No shadcn/ui or other component library; shared styles live in `src/index.css` a
 
 1. Design tokens: consolidate colour, radius, shadow and motion values into `index.css` and the
    Tailwind theme. Remove duplicated card and button classes.
-2. Shared states: `StatusPill`, `EmptyState` and `AnimatedNumber` now exist in `components/ui/` and are used by the Mentor. Still to add: `Skeleton` and `Toast`, and to use these on the other routes.
+2. Shared states: `StatusPill`, `EmptyState`, `AnimatedNumber` and `StepProgress` now exist in `components/ui/` (used by the Mentor and Onboarding). Still to add: `Skeleton` and `Toast`, and to use these on the other routes.
 3. Route-by-route pass, each checked in a browser at 1280, 768 and 390 widths:
    Onboarding → Assessment → Learn game → Report → Mentor → Audio mode → Life Mode → NGO →
    3D world HUD.
 4. Reduced motion: gate every timed animation (3D pulse, results bars, toast) on
    `useReducedMotion()`.
+   Done so far: Mentor balance (`AnimatedNumber`). Still to do: 3D results bars and toasts.
 5. Remove `Setup.jsx` after confirming nothing imports it.
 
 Each step is done only when the route has been checked in a browser and the checks pass.

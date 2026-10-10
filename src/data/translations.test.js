@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import translations, { fill } from './translations.js';
 
 describe('translations', () => {
@@ -15,6 +16,19 @@ describe('translations', () => {
       for (const lang of ['hi', 'te']) {
         expect((String(translations[lang][key]).match(/\{\w+\}/g) || []).sort(), `${lang}.${key}`).toEqual(want);
       }
+    }
+  });
+});
+
+describe('translation source', () => {
+  it('defines each key only once per language, so no later entry silently wins', () => {
+    const src = readFileSync(new URL('./translations.js', import.meta.url), 'utf8');
+    const blocks = src.split(/\n  (?:en|hi|te): \{/).slice(1);
+    expect(blocks).toHaveLength(3);
+    for (const block of blocks) {
+      const keys = [...block.matchAll(/^ {4}(\w+):/gm)].map((m) => m[1]);
+      const dups = keys.filter((k, i) => keys.indexOf(k) !== i);
+      expect(dups).toEqual([]);
     }
   });
 });

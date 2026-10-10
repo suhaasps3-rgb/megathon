@@ -1,165 +1,141 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, ChevronRight, Loader2, Sparkles, ShoppingBag, Pizza, PiggyBank, Rocket } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Loader2, ShoppingBag, Pizza, PiggyBank, Rocket, RotateCcw, Info } from 'lucide-react';
 import { assessUnderstanding } from '../services/llm';
+import { offlineAssessment } from '../services/offlineAssessment';
+import translations from '../data/translations';
+import Mascot from './brand/Mascot';
 
 export default function Assessment({ apiKey, onComplete, t }) {
+  const T = { ...translations.en, ...(t || {}) };
   const [selected, setSelected] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [fellBack, setFellBack] = useState(false);
+  // Ignores a late answer if the player already changed their mind or left.
+  const runId = useRef(0);
+  const resultRef = useRef(null);
 
-  const T = t || {
-    assmSync: "Initial Sync",
-    assmQuestion: "Imagine you suddenly received ₹1000 today.",
-    assmSub: "Be honest. What's your immediate instinct?",
-    assmTreatTitle: "Treat Myself! 🛍️",
-    assmTreatDesc: "Buy that thing I've been eyeing.",
-    assmSquadTitle: "Squad Time 🍕",
-    assmSquadDesc: "Go out and grab food with friends.",
-    assmSaveTitle: "Lock it Away 🏦",
-    assmSaveDesc: "Save it. You never know when you need it.",
-    assmGrowTitle: "Grow It 🚀",
-    assmGrowDesc: "Try to invest or start a side hustle.",
-    assmAnalyzed: "Instinct Analyzed",
-    assmStartSim: "Start The Simulation"
-  };
+  useEffect(() => () => { runId.current += 1; }, []);
+  useEffect(() => {
+    if (result) resultRef.current?.focus();
+  }, [result]);
 
-  const QUICK_OPTIONS = [
-    {
-      id: 'treat',
-      title: T.assmTreatTitle,
-      desc: T.assmTreatDesc,
-      icon: ShoppingBag,
-      color: 'from-pink-500 to-rose-400'
-    },
-    {
-      id: 'friends',
-      title: T.assmSquadTitle,
-      desc: T.assmSquadDesc,
-      icon: Pizza,
-      color: 'from-orange-400 to-amber-500'
-    },
-    {
-      id: 'save',
-      title: T.assmSaveTitle,
-      desc: T.assmSaveDesc,
-      icon: PiggyBank,
-      color: 'from-teal-400 to-emerald-500'
-    },
-    {
-      id: 'grow',
-      title: T.assmGrowTitle,
-      desc: T.assmGrowDesc,
-      icon: Rocket,
-      color: 'from-purple-500 to-indigo-500'
-    }
+  const OPTIONS = [
+    { id: 'treat', title: T.assmTreatTitle, desc: T.assmTreatDesc, icon: ShoppingBag, tone: 'bg-saffron-100 text-saffron-800' },
+    { id: 'friends', title: T.assmSquadTitle, desc: T.assmSquadDesc, icon: Pizza, tone: 'bg-rose-100 text-rose-700' },
+    { id: 'save', title: T.assmSaveTitle, desc: T.assmSaveDesc, icon: PiggyBank, tone: 'bg-teal-100 text-teal-700' },
+    { id: 'grow', title: T.assmGrowTitle, desc: T.assmGrowDesc, icon: Rocket, tone: 'bg-purple-100 text-purple-700' },
   ];
 
   const handleSelect = async (option) => {
+    if (isSubmitting) return;
+    const id = ++runId.current;
     setSelected(option.id);
     setIsSubmitting(true);
-    
-    const contextStr = `The user chose to: ${option.title} - ${option.desc}`;
-    
+    setFellBack(false);
+
+    // Without a key, the read is local and expected, so no failure notice is shown.
+    if (!apiKey) {
+      setResult(offlineAssessment(option.id, T.assmFallbackText));
+      setIsSubmitting(false);
+      return;
+    }
     try {
-      const assessment = await assessUnderstanding(apiKey, contextStr);
+      const assessment = await assessUnderstanding(apiKey, `The user chose to: ${option.title} - ${option.desc}`);
+      if (id !== runId.current) return;
       setResult(assessment);
     } catch (err) {
       console.error(err);
-      setResult({
-        level: option.id === 'save' || option.id === 'grow' ? 6 : 3,
-        analysis: "Got it! Let's see how that instinct plays out in the real world."
-      });
+      if (id !== runId.current) return;
+      setResult(offlineAssessment(option.id, T.assmFallbackText));
+      setFellBack(true);
     } finally {
-      setIsSubmitting(false);
+      if (id === runId.current) setIsSubmitting(false);
     }
   };
 
-  return (
-    <div className="max-w-3xl mx-auto p-6 pt-12">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white p-8 md:p-12 relative overflow-hidden"
-      >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-teal-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-        
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-6">
-            <Sparkles className="text-purple-500" size={24} />
-            <h2 className="text-sm font-bold text-purple-600 uppercase tracking-widest">{T.assmSync}</h2>
-          </div>
-          
-          <h3 className="text-3xl font-black text-slate-800 mb-4 leading-tight">
-            {T.assmQuestion}
-          </h3>
-          <p className="text-slate-500 text-lg mb-8 font-medium">
-            {T.assmSub}
-          </p>
+  const changeAnswer = () => {
+    runId.current += 1;
+    setResult(null);
+    setSelected(null);
+    setFellBack(false);
+    setIsSubmitting(false);
+  };
 
-          {!result ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {QUICK_OPTIONS.map((opt) => (
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  key={opt.id}
-                  onClick={() => handleSelect(opt)}
-                  disabled={isSubmitting}
-                  className={`relative p-6 rounded-2xl border-2 text-left overflow-hidden transition-all ${
-                    selected === opt.id 
-                      ? 'border-purple-500 ring-4 ring-purple-500/20' 
-                      : 'border-slate-100 hover:border-slate-300'
-                  } bg-white shadow-sm disabled:opacity-70`}
-                >
-                  <div className={`absolute top-0 left-0 w-2 h-full bg-gradient-to-b ${opt.color}`}></div>
-                  
-                  <div className="flex items-center gap-4">
-                    {isSubmitting && selected === opt.id ? (
-                      <Loader2 className="animate-spin text-purple-500" size={32} />
-                    ) : (
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${opt.color} flex items-center justify-center text-white shadow-lg`}>
-                        <opt.icon size={24} />
-                      </div>
-                    )}
-                    <div>
-                      <h4 className="font-black text-lg text-slate-800">{opt.title}</h4>
-                      <p className="text-sm text-slate-500 font-medium mt-1">{opt.desc}</p>
-                    </div>
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-          ) : (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-br from-teal-50 to-teal-100/50 border border-teal-200 rounded-2xl p-8"
-            >
-              <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 bg-teal-500 text-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-teal-500/30">
-                  <CheckCircle2 size={28} />
-                </div>
-                <div>
-                  <h4 className="text-xl font-bold text-teal-900 mb-2">{T.assmAnalyzed}</h4>
-                  <p className="text-teal-800 text-lg leading-relaxed">{result.analysis}</p>
-                </div>
-              </div>
-              
-              <div className="pt-6 border-t border-teal-200/50 flex justify-end">
-                <button 
-                  onClick={() => onComplete(result.level)}
-                  className="bg-slate-900 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition-all shadow-xl hover:shadow-purple-500/20"
-                >
-                  {T.assmStartSim}
-                  <ChevronRight size={20} className="text-teal-400" />
-                </button>
-              </div>
-            </motion.div>
-          )}
+  return (
+    <div className="mx-auto max-w-3xl px-4 pb-16 pt-8 sm:px-6 sm:pt-12">
+      <div className="card p-5 sm:p-8">
+        <div className="flex items-center gap-3">
+          <Mascot size={48} mood={result ? 'cheer' : isSubmitting ? 'think' : 'happy'} />
+          <p className="eyebrow">{T.assmSync}</p>
         </div>
-      </motion.div>
+
+        <h1 className="mt-4 text-3xl font-extrabold leading-tight text-ink-900 sm:text-4xl">{T.assmQuestion}</h1>
+        <p className="mt-2 text-lg text-slate-600">{T.assmSub}</p>
+
+        {!result ? (
+          <fieldset className="mt-7">
+            <legend className="sr-only">{T.assmPick}</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {OPTIONS.map((opt) => {
+                const loading = isSubmitting && selected === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleSelect(opt)}
+                    disabled={isSubmitting}
+                    aria-pressed={selected === opt.id}
+                    className="choice flex items-center gap-4 p-4 disabled:opacity-60"
+                  >
+                    <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${opt.tone}`}>
+                      {loading ? <Loader2 className="animate-spin" size={24} aria-hidden="true" /> : <opt.icon size={24} aria-hidden="true" />}
+                    </span>
+                    <span>
+                      <span className="block text-lg font-extrabold text-ink-900">{opt.title}</span>
+                      <span className="block text-sm text-slate-600">{opt.desc}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p role="status" aria-live="polite" className="mt-4 min-h-[1.5rem] text-sm font-bold text-purple-700">
+              {isSubmitting ? T.assmReading : ''}
+            </p>
+          </fieldset>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="mt-7 rounded-3xl border border-teal-200 bg-teal-50 p-6"
+          >
+            <div className="flex items-start gap-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-teal-500 text-white">
+                <CheckCircle2 size={26} aria-hidden="true" />
+              </span>
+              <div role="status" aria-live="polite">
+                <h2 ref={resultRef} tabIndex={-1} className="text-xl font-extrabold text-teal-900 outline-none">{T.assmAnalyzed}</h2>
+                <p className="mt-2 text-lg leading-relaxed text-teal-900">{result.analysis}</p>
+                {fellBack && (
+                  <p className="mt-3 flex items-start gap-2 rounded-xl bg-saffron-50 px-3 py-2 text-sm text-saffron-900">
+                    <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" /> {T.assmFallback}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-teal-200 pt-5">
+              <button type="button" onClick={changeAnswer} className="btn-secondary">
+                <RotateCcw size={16} aria-hidden="true" /> {T.assmChange}
+              </button>
+              <button type="button" onClick={() => onComplete(result.level)} className="btn-brand">
+                {T.assmStartSim} <ChevronRight size={18} aria-hidden="true" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }

@@ -11,5 +11,5 @@
     "skipLibCheck": true
   },
   "include": ["src/lifemode/**/*.js"],
-  "exclude": ["src/lifemode/__tests__", "src/lifemode/useLifeGame.js"]
+  "exclude": ["src/lifemode/__tests__", "src/lifemode/useLifeGame.js", "src/lifemode/story/useStory.js"]
 }

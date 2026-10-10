@@ -16,7 +16,7 @@ No shadcn/ui or other component library; shared styles live in `src/index.css` a
 | REPORT | `components/Report.jsx` | Not yet reviewed. |
 | LIFE | `components/life/LifeMode.jsx` (+ Hud, Room, ScenarioView, FutureLab, LifeReport) | Has its own `prefers-reduced-motion` handling. HUD not yet reviewed. |
 | NEIGHBORHOOD (3D world) | `components/world/NeighborhoodGame.jsx`, `World.jsx`, `ResultsPanel.jsx` | Results and controls redesigned. Mission card and shop dialogue added. HUD still a single overlay. |
-| VOICE (Mentor) | `components/VoiceCompanion.jsx` | Offline answers added. States (listening, thinking, speaking, error) are not visually distinct yet. |
+| VOICE (Mentor) | `components/VoiceCompanion.jsx` | **Done.** Distinct states (ready, listening, thinking, speaking, error) with a status pill; conversation history; quick prompts; animated balance; AI failure falls back to offline with a notice; translated (en, hi, te). Checked at 1280, 768 and 390 widths. Not tested: a real microphone and spoken output (headless browser has neither). |
 | BLIND_MODE (Audio mode) | `components/BlindMode.jsx` | Full-screen audio-first mode. Not yet reviewed. |
 | NGO dashboard | `components/NgoDashboard.jsx` | Not yet reviewed. |
 | Not routed | `components/Setup.jsx` | Unrouted since the Gemini key moved server-side. Candidate for removal. |
@@ -40,14 +40,13 @@ No shadcn/ui or other component library; shared styles live in `src/index.css` a
 4. Dead code: `Setup.jsx` is not routed.
 5. Overlays: the 3D HUD, pause menu and results panel are absolutely positioned over the canvas,
    which means they must be checked at each breakpoint for overlap.
-6. Voice states: the Mentor does not show a distinct listening / thinking / speaking state.
+6. ~~Voice states: the Mentor does not show a distinct listening / thinking / speaking state.~~ Fixed in the Mentor.
 
 ## Plan (in order)
 
 1. Design tokens: consolidate colour, radius, shadow and motion values into `index.css` and the
    Tailwind theme. Remove duplicated card and button classes.
-2. Shared states: one `Skeleton`, `EmptyState` and `Toast` component, used everywhere a list or
-   async value appears.
+2. Shared states: `StatusPill`, `EmptyState` and `AnimatedNumber` now exist in `components/ui/` and are used by the Mentor. Still to add: `Skeleton` and `Toast`, and to use these on the other routes.
 3. Route-by-route pass, each checked in a browser at 1280, 768 and 390 widths:
    Onboarding → Assessment → Learn game → Report → Mentor → Audio mode → Life Mode → NGO →
    3D world HUD.

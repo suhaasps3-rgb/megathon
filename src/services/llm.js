@@ -197,6 +197,7 @@ export async function parseVoiceAllocation(apiKey, transcript, lang = 'en') {
 
     if (isNetworkError) {
       return { 
+        failed: true,
         actions: [], 
         companionResponse: transcript 
           ? `I heard you say: "${transcript}" — but my AI is temporarily overloaded. Please wait 30 seconds and try again!`
@@ -205,6 +206,7 @@ export async function parseVoiceAllocation(apiKey, transcript, lang = 'en') {
     }
 
     return { 
+      failed: true,
       actions: [], 
       companionResponse: `Error: ${error.message}` 
     };

@@ -2,8 +2,15 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { KeyRound, Sparkles } from 'lucide-react';
 
-export default function Setup({ onComplete }) {
+export default function Setup({ onComplete, t }) {
   const [key, setKey] = useState('');
+
+  const T = t || {
+    setupTitle: "Welcome to PaisaPath",
+    setupSubtitle: "To power the dynamic AI engine, please provide a Gemini API Key.",
+    setupKeyLabel: "Gemini API Key",
+    setupLaunch: "Launch Engine"
+  };
   
   return (
     <div className="min-h-[80vh] flex items-center justify-center p-6">
@@ -15,12 +22,12 @@ export default function Setup({ onComplete }) {
         <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-teal-400 rounded-2xl flex items-center justify-center mb-6 mx-auto shadow-lg">
           <Sparkles className="text-white" size={32} />
         </div>
-        <h2 className="text-3xl font-black text-center text-slate-800 mb-2">Welcome to PaisaPath</h2>
-        <p className="text-center text-slate-500 mb-8 font-medium">To power the dynamic AI engine, please provide a Gemini API Key.</p>
+        <h2 className="text-3xl font-black text-center text-slate-800 mb-2">{T.setupTitle}</h2>
+        <p className="text-center text-slate-500 mb-8 font-medium">{T.setupSubtitle}</p>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Gemini API Key</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">{T.setupKeyLabel}</label>
             <div className="relative">
               <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
               <input 
@@ -37,7 +44,7 @@ export default function Setup({ onComplete }) {
             disabled={!key}
             className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
           >
-            Launch Engine
+            {T.setupLaunch}
           </button>
         </div>
       </motion.div>

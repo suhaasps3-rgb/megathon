@@ -3,41 +3,57 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, ChevronRight, Loader2, Sparkles, ShoppingBag, Pizza, PiggyBank, Rocket } from 'lucide-react';
 import { assessUnderstanding } from '../services/llm';
 
-const QUICK_OPTIONS = [
-  {
-    id: 'treat',
-    title: 'Treat Myself! 🛍️',
-    desc: 'Buy that thing I\'ve been eyeing.',
-    icon: ShoppingBag,
-    color: 'from-pink-500 to-rose-400'
-  },
-  {
-    id: 'friends',
-    title: 'Squad Time 🍕',
-    desc: 'Go out and grab food with friends.',
-    icon: Pizza,
-    color: 'from-orange-400 to-amber-500'
-  },
-  {
-    id: 'save',
-    title: 'Lock it Away 🏦',
-    desc: 'Save it. You never know when you need it.',
-    icon: PiggyBank,
-    color: 'from-teal-400 to-emerald-500'
-  },
-  {
-    id: 'grow',
-    title: 'Grow It 🚀',
-    desc: 'Try to invest or start a side hustle.',
-    icon: Rocket,
-    color: 'from-purple-500 to-indigo-500'
-  }
-];
-
-export default function Assessment({ apiKey, onComplete }) {
+export default function Assessment({ apiKey, onComplete, t }) {
   const [selected, setSelected] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+
+  const T = t || {
+    assmSync: "Initial Sync",
+    assmQuestion: "Imagine you suddenly received ₹1000 today.",
+    assmSub: "Be honest. What's your immediate instinct?",
+    assmTreatTitle: "Treat Myself! 🛍️",
+    assmTreatDesc: "Buy that thing I've been eyeing.",
+    assmSquadTitle: "Squad Time 🍕",
+    assmSquadDesc: "Go out and grab food with friends.",
+    assmSaveTitle: "Lock it Away 🏦",
+    assmSaveDesc: "Save it. You never know when you need it.",
+    assmGrowTitle: "Grow It 🚀",
+    assmGrowDesc: "Try to invest or start a side hustle.",
+    assmAnalyzed: "Instinct Analyzed",
+    assmStartSim: "Start The Simulation"
+  };
+
+  const QUICK_OPTIONS = [
+    {
+      id: 'treat',
+      title: T.assmTreatTitle,
+      desc: T.assmTreatDesc,
+      icon: ShoppingBag,
+      color: 'from-pink-500 to-rose-400'
+    },
+    {
+      id: 'friends',
+      title: T.assmSquadTitle,
+      desc: T.assmSquadDesc,
+      icon: Pizza,
+      color: 'from-orange-400 to-amber-500'
+    },
+    {
+      id: 'save',
+      title: T.assmSaveTitle,
+      desc: T.assmSaveDesc,
+      icon: PiggyBank,
+      color: 'from-teal-400 to-emerald-500'
+    },
+    {
+      id: 'grow',
+      title: T.assmGrowTitle,
+      desc: T.assmGrowDesc,
+      icon: Rocket,
+      color: 'from-purple-500 to-indigo-500'
+    }
+  ];
 
   const handleSelect = async (option) => {
     setSelected(option.id);
@@ -72,14 +88,14 @@ export default function Assessment({ apiKey, onComplete }) {
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-6">
             <Sparkles className="text-purple-500" size={24} />
-            <h2 className="text-sm font-bold text-purple-600 uppercase tracking-widest">Initial Sync</h2>
+            <h2 className="text-sm font-bold text-purple-600 uppercase tracking-widest">{T.assmSync}</h2>
           </div>
           
           <h3 className="text-3xl font-black text-slate-800 mb-4 leading-tight">
-            Imagine you suddenly received ₹1000 today.
+            {T.assmQuestion}
           </h3>
           <p className="text-slate-500 text-lg mb-8 font-medium">
-            Be honest. What's your immediate instinct?
+            {T.assmSub}
           </p>
 
           {!result ? (
@@ -126,7 +142,7 @@ export default function Assessment({ apiKey, onComplete }) {
                   <CheckCircle2 size={28} />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-teal-900 mb-2">Instinct Analyzed</h4>
+                  <h4 className="text-xl font-bold text-teal-900 mb-2">{T.assmAnalyzed}</h4>
                   <p className="text-teal-800 text-lg leading-relaxed">{result.analysis}</p>
                 </div>
               </div>
@@ -136,7 +152,7 @@ export default function Assessment({ apiKey, onComplete }) {
                   onClick={() => onComplete(result.level)}
                   className="bg-slate-900 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition-all shadow-xl hover:shadow-purple-500/20"
                 >
-                  Start The Simulation
+                  {T.assmStartSim}
                   <ChevronRight size={20} className="text-teal-400" />
                 </button>
               </div>

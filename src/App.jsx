@@ -132,9 +132,9 @@ function App() {
 
       <main className="relative">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] pointer-events-none"></div>
-        {state === 'SETUP' && <Setup onComplete={handleSetupComplete} />}
-        {state === 'ONBOARDING' && <Onboarding onComplete={handleOnboardingComplete} />}
-        {state === 'ASSESSMENT' && <Assessment apiKey={apiKey} onComplete={handleAssessmentComplete} />}
+        {state === 'SETUP' && <Setup onComplete={handleSetupComplete} t={t} />}
+        {state === 'ONBOARDING' && <Onboarding onComplete={handleOnboardingComplete} t={t} />}
+        {state === 'ASSESSMENT' && <Assessment apiKey={apiKey} onComplete={handleAssessmentComplete} t={t} />}
         {state === 'GAME' && <Game apiKey={apiKey} profile={profile} assessmentScore={assessmentScore} onComplete={handleGameComplete} />}
         {state === 'REPORT' && <Report data={gameData} onRestart={resetToStart} t={t} />}
         {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => setState('ONBOARDING')} />}

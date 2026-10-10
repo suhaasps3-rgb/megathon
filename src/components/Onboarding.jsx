@@ -19,7 +19,7 @@ const LEARNING_STYLES = [
   { id: 'visual', label: 'Visual & Simple', desc: 'Less text, quick impact choices', icon: ImageIcon }
 ];
 
-export default function Onboarding({ onComplete }) {
+export default function Onboarding({ onComplete, t }) {
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState('😎');
@@ -63,33 +63,51 @@ export default function Onboarding({ onComplete }) {
     show: { opacity: 1, y: 0 }
   };
 
+  // Provide fallback to avoid crash if t is undefined (e.g. during fast refresh)
+  const T = t || {
+    onbTitle: "Create Your Character",
+    onbSubtitle: "Welcome to your new virtual life. Every choice changes your story.",
+    onbIdentity: "Identity",
+    onbNameLabel: "YOUR NAME",
+    onbNamePlaceholder: "Enter your name...",
+    onbAvatarLabel: "CHOOSE AVATAR",
+    onbContinue: "Continue",
+    onbVibesTitle: "What are your vibes?",
+    onbPick1: "Pick 1 or more",
+    onbProcessInfo: "How do you process information?",
+    onbChooseGoalBtn: "Choose Your Goal",
+    onbGoalTitle: "What are you saving for?",
+    onbTarget: "Target",
+    onbStartSim: "Start My Simulation"
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6 pt-12">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
         <h1 className="text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-teal-500 mb-4">
-          Create Your Character
+          {T.onbTitle}
         </h1>
-        <p className="text-xl text-slate-600 font-medium">Welcome to your new virtual life. Every choice changes your story.</p>
+        <p className="text-xl text-slate-600 font-medium">{T.onbSubtitle}</p>
       </motion.div>
 
       <AnimatePresence mode="wait">
         {step === 1 && (
           <motion.div key="step1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="max-w-lg mx-auto bg-white rounded-3xl p-8 shadow-xl border border-slate-100">
             <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-              <User className="text-purple-500" /> Identity
+              <User className="text-purple-500" /> {T.onbIdentity}
             </h2>
             <div className="mb-6">
-              <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Your Name</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">{T.onbNameLabel}</label>
               <input 
                 type="text" 
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your name..."
+                placeholder={T.onbNamePlaceholder}
                 className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-purple-500 outline-none text-lg font-bold"
               />
             </div>
             <div className="mb-8">
-              <label className="block text-sm font-bold text-slate-700 mb-3 uppercase tracking-wide">Choose Avatar</label>
+              <label className="block text-sm font-bold text-slate-700 mb-3 uppercase tracking-wide">{T.onbAvatarLabel}</label>
               <div className="flex justify-between gap-2">
                 {AVATARS.map(a => (
                   <button 
@@ -107,7 +125,7 @@ export default function Onboarding({ onComplete }) {
               disabled={!name.trim()}
               className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 flex justify-center items-center gap-2"
             >
-              Continue <Play size={18} className="text-teal-400" />
+              {T.onbContinue} <Play size={18} className="text-teal-400" />
             </button>
           </motion.div>
         )}
@@ -116,7 +134,7 @@ export default function Onboarding({ onComplete }) {
           <motion.div key="step2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
             <div className="mb-12">
               <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                What are your vibes? <span className="text-sm font-normal text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Pick 1 or more</span>
+                {T.onbVibesTitle} <span className="text-sm font-normal text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{T.onbPick1}</span>
               </h2>
               <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {INTERESTS.map(interest => {
@@ -144,7 +162,7 @@ export default function Onboarding({ onComplete }) {
             </div>
 
             <div className="mb-12">
-              <h2 className="text-2xl font-bold text-slate-800 mb-6">How do you process information?</h2>
+              <h2 className="text-2xl font-bold text-slate-800 mb-6">{T.onbProcessInfo}</h2>
               <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {LEARNING_STYLES.map(style => {
                   const Icon = style.icon;
@@ -182,7 +200,7 @@ export default function Onboarding({ onComplete }) {
                 onClick={() => setStep(3)}
                 className="flex items-center gap-3 bg-slate-900 text-white px-10 py-5 rounded-full text-xl font-bold shadow-2xl hover:shadow-purple-500/30 transition-all"
               >
-                Choose Your Goal <Play size={24} className="text-teal-400" />
+                {T.onbChooseGoalBtn} <Play size={24} className="text-teal-400" />
               </motion.button>
             </motion.div>
           </motion.div>
@@ -191,7 +209,7 @@ export default function Onboarding({ onComplete }) {
         {step === 3 && (
           <motion.div key="step3" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="max-w-2xl mx-auto">
             <h2 className="text-3xl font-black text-center text-slate-800 mb-8">
-              What are you saving for?
+              {T.onbGoalTitle}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
               {GOALS.map(goal => (
@@ -209,7 +227,7 @@ export default function Onboarding({ onComplete }) {
                   <div className="text-4xl">{goal.icon}</div>
                   <div>
                     <h3 className="font-bold text-lg">{goal.label}</h3>
-                    <p className="text-purple-600 font-black text-sm uppercase tracking-wide">Target: ₹{goal.cost}</p>
+                    <p className="text-purple-600 font-black text-sm uppercase tracking-wide">{T.onbTarget}: ₹{goal.cost}</p>
                   </div>
                 </motion.button>
               ))}
@@ -227,7 +245,7 @@ export default function Onboarding({ onComplete }) {
                 className="flex items-center gap-3 bg-slate-900 text-white px-10 py-5 rounded-full text-xl font-bold shadow-2xl hover:shadow-purple-500/30 transition-all"
               >
                 <Target size={24} className="text-teal-400" />
-                Start My Simulation
+                {T.onbStartSim}
               </motion.button>
             </motion.div>
           </motion.div>

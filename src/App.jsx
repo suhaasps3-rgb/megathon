@@ -7,18 +7,23 @@ import Report from './components/Report';
 import NgoDashboard from './components/NgoDashboard';
 import VoiceCompanion from './components/VoiceCompanion';
 import BlindMode from './components/BlindMode';
-import { Mic, Eye } from 'lucide-react';
+import translations from './data/translations';
+import { Mic, Eye, Globe } from 'lucide-react';
 
 function App() {
   const envKey = import.meta.env.VITE_GEMINI_API_KEY;
   
-  // States: SETUP, ONBOARDING, ASSESSMENT, GAME, REPORT, VOICE, BLIND_MODE
   const [state, setState] = useState(envKey ? 'ONBOARDING' : 'SETUP'); 
   const [apiKey, setApiKey] = useState(envKey || '');
   const [profile, setProfile] = useState(null);
   const [assessmentScore, setAssessmentScore] = useState(0);
   const [gameData, setGameData] = useState(null);
   const [isNgoMode, setIsNgoMode] = useState(false);
+  const [lang, setLang] = useState('en');
+
+  const t = translations[lang];
+
+  const langLabels = { en: 'EN', hi: 'हि', te: 'తె' };
 
   const handleSetupComplete = (key) => {
     setApiKey(key);
@@ -44,22 +49,36 @@ function App() {
     setProfile(null);
     setAssessmentScore(0);
     setGameData(null);
-    setState('ONBOARDING'); // Skip SETUP if they already provided key
+    setState('ONBOARDING');
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
+      if (e.target.isContentEditable) return;
+
+      if (e.code === 'Space' && !e.repeat && state !== 'BLIND_MODE') {
+        e.preventDefault();
+        setState('BLIND_MODE');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state]);
 
   if (isNgoMode) {
     return <NgoDashboard onBack={() => setIsNgoMode(false)} />;
   }
 
-  // If in Blind Mode, return the full-screen overlay directly
   if (state === 'BLIND_MODE') {
-    return <BlindMode apiKey={apiKey} onExit={() => setState('ONBOARDING')} />;
+    return <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => setState('ONBOARDING')} />;
   }
 
   return (
     <div className="min-h-screen pb-12 font-sans selection:bg-purple-500/30">
       
-      {/* Screen Reader Only - Automatically read by screen readers on page load */}
       <div className="sr-only" role="alert" aria-live="assertive">
         Welcome to PaisaPath. If you are visually impaired, please press the Spacebar now to enter the fully accessible Audio Mode.
       </div>
@@ -73,27 +92,39 @@ function App() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-teal-500 flex items-center justify-center text-white text-xl shadow-lg shadow-purple-500/30">
               ₹
             </div>
-            PaisaPath
+            {t.appName}
           </button>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Language Selector */}
+            <div className="flex bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+              {Object.entries(langLabels).map(([code, label]) => (
+                <button
+                  key={code}
+                  onClick={() => setLang(code)}
+                  className={`px-3 py-1.5 text-sm font-bold transition-colors ${lang === code ? 'bg-purple-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             <button 
               onClick={() => setState('BLIND_MODE')}
               className="flex items-center gap-2 text-sm font-bold bg-yellow-400 text-black px-4 py-1.5 rounded-lg hover:bg-yellow-500 transition-colors shadow-sm"
-              title="Visually Impaired Mode (Pure Audio)"
             >
-              <Eye size={16} /> Accessible Audio Mode
+              <Eye size={16} /> {t.audioMode}
             </button>
             <button 
               onClick={() => setState('VOICE')}
               className="hidden md:flex items-center gap-2 text-sm font-bold bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors"
             >
-              <Mic size={16} /> Voice Level
+              <Mic size={16} /> {t.voiceLevel}
             </button>
             <button 
               onClick={() => setIsNgoMode(true)}
               className="text-xs font-bold bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors"
             >
-              NGO Login
+              {t.ngoLogin}
             </button>
           </div>
         </div>
@@ -105,8 +136,8 @@ function App() {
         {state === 'ONBOARDING' && <Onboarding onComplete={handleOnboardingComplete} />}
         {state === 'ASSESSMENT' && <Assessment apiKey={apiKey} onComplete={handleAssessmentComplete} />}
         {state === 'GAME' && <Game apiKey={apiKey} profile={profile} assessmentScore={assessmentScore} onComplete={handleGameComplete} />}
-        {state === 'REPORT' && <Report data={gameData} onRestart={resetToStart} />}
-        {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} onComplete={() => setState('ONBOARDING')} />}
+        {state === 'REPORT' && <Report data={gameData} onRestart={resetToStart} t={t} />}
+        {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => setState('ONBOARDING')} />}
       </main>
     </div>
   );

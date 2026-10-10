@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { parseVoiceAllocation } from '../services/llm';
 
-export default function BlindMode({ apiKey, onExit }) {
+export default function BlindMode({ apiKey, lang, t, onExit }) {
   const [wallet, setWallet] = useState(1000);
   const [isListening, setIsListening] = useState(false);
-  const [message, setMessage] = useState("Welcome to PaisaPath Audio Mode. I am your financial mentor. Hold the Spacebar to speak, and release it when you are done. You currently have 1000 rupees. What would you like to do?");
+  const [message, setMessage] = useState(t.blindWelcome);
   
   const recognitionRef = useRef(null);
   const isListeningRef = useRef(false);
@@ -49,11 +49,14 @@ export default function BlindMode({ apiKey, onExit }) {
     const handleKeyDown = (e) => {
       if (e.code === 'Space') {
         e.preventDefault();
-        // Use ref to read CURRENT value, not stale closure value
         if (!e.repeat && !isListeningRef.current && !isProcessingRef.current) {
           window.speechSynthesis.cancel();
           try { recognitionRef.current?.start(); } catch(err) {}
         }
+      }
+      if (e.code === 'KeyR' && !e.repeat) {
+        // R key = Repeat last message
+        speak(message);
       }
       if (e.code === 'Escape') {
         window.speechSynthesis.cancel();
@@ -80,10 +83,13 @@ export default function BlindMode({ apiKey, onExit }) {
 
   const speak = (text) => {
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    window.speechSynthesis.speak(utterance);
+    // Small delay to let the browser fully flush the previous utterance before starting new one
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }, 150);
   };
 
   const processInput = async (transcript) => {
@@ -94,9 +100,9 @@ export default function BlindMode({ apiKey, onExit }) {
       return;
     }
 
-    setMessage("Processing your response...");
+    setMessage(t.processing);
     
-    const result = await parseVoiceAllocation(apiKey, transcript);
+    const result = await parseVoiceAllocation(apiKey, transcript, lang);
     
     let netChange = 0;
     if (result.actions && Array.isArray(result.actions)) {
@@ -154,9 +160,17 @@ export default function BlindMode({ apiKey, onExit }) {
         {message}
       </h1>
 
-      <p className="text-white/60 mt-16 text-2xl font-bold tracking-widest">
-        HOLD <span className="text-white bg-white/20 px-4 py-2 rounded-lg mx-2">SPACEBAR</span> TO SPEAK
+      <p className="text-white/60 mt-10 text-2xl font-bold tracking-widest">
+        {t.holdSpacebar} <span className="text-white bg-white/20 px-4 py-2 rounded-lg mx-2">{t.spacebar}</span> {t.toSpeak}
       </p>
+
+      <button
+        onClick={() => speak(message)}
+        className="mt-6 text-yellow-400 border-2 border-yellow-400 px-8 py-4 rounded-xl font-bold text-xl hover:bg-yellow-400 hover:text-black transition-colors"
+        aria-label="Repeat last message"
+      >
+        🔁 {t.repeatBtn}
+      </button>
       
       <button 
         onClick={() => {
@@ -165,7 +179,7 @@ export default function BlindMode({ apiKey, onExit }) {
         }}
         className="absolute top-8 right-8 text-yellow-400 border-2 border-yellow-400 px-6 py-3 rounded-xl font-bold text-xl hover:bg-yellow-400 hover:text-black transition-colors"
       >
-        Press ESC to Exit
+        {t.exitBtn}
       </button>
     </div>
   );

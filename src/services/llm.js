@@ -127,9 +127,13 @@ export async function assessUnderstanding(apiKey, userAnswer) {
   }
 }
 
-export async function parseVoiceAllocation(apiKey, transcript) {
+export async function parseVoiceAllocation(apiKey, transcript, lang = 'en') {
+  const langName = { en: 'English', hi: 'Hindi', te: 'Telugu' }[lang] || 'English';
+  
   const prompt = `
     You are PaisaPath's Voice Companion, an advanced financial mentor for 16-17 year olds. You have a relaxed, slightly GenZ vibe (think older sibling who actually knows about money).
+    
+    LANGUAGE: You MUST respond entirely in ${langName}. All text in "companionResponse" must be in ${langName}.
     
     User's exact words: "${transcript}"
     
@@ -137,7 +141,8 @@ export async function parseVoiceAllocation(apiKey, transcript) {
     1. STRICT INTENT PARSING: Distinguish between theoretical questions vs. actual transactions. 
        - If the user talks about investing (e.g., "I have 3000rs to invest in an SIP", "What is compounding?"), DO NOT extract this as an expense. Treat it as a mentor moment. Answer them directly with a highly educational, realistic, and engaging response (2-4 sentences). Explain the concepts clearly.
        - ONLY extract an "action" if the user explicitly states they just bought/spent money on a consumable item (e.g., "I just bought a burger for 100") or received pocket money.
-    2. TONE: Be helpful, accurate, and drop some real financial knowledge. You can use words like "W", "L", "flex", or "vibes" sparingly if it fits natively, but focus heavily on giving a genuinely excellent, relevant answer to what they just said. Do NOT redirect them to a game or scenario.
+    2. TONE: Be helpful, accurate, and drop some real financial knowledge. You can use words like "W", "L", "flex", or "vibes" sparingly if it fits natively.
+    3. OFF-TOPIC QUESTIONS: If the question is clearly not about money or finance (e.g., celebrities, sports, movies), give a brief fun answer but ALWAYS end with a sentence nudging them back to financial advice. Example ending: "Anyway, got any money questions I can help you with?" or "But real talk — got any finance questions for me?"
     
     Return ONLY valid JSON matching this schema exactly (no markdown, no quotes):
     {
@@ -191,51 +196,11 @@ export async function parseVoiceAllocation(apiKey, transcript) {
       error.message?.includes("NetworkError");
 
     if (isNetworkError) {
-      const tLower = transcript.toLowerCase();
-      
-      if (tLower.includes("sip") || tLower.includes("mutual fund") || tLower.includes("invest") || tLower.includes("compound")) {
-        return {
-          actions: [],
-          companionResponse: "That's a massive W question! Investing in an SIP (Systematic Investment Plan) means putting a fixed amount — even just ₹500 — into a mutual fund every month automatically. Over 10-15 years, compounding turns that into serious wealth. Start small, stay consistent!"
-        };
-      }
-
-      if (tLower.includes("budget") || tLower.includes("save") || tLower.includes("saving")) {
-        return {
-          actions: [],
-          companionResponse: "The golden rule is the 50-30-20 split: 50% of your income on needs, 30% on wants, and 20% straight into savings or investments. Even at your age, building this habit early is a total W for your future self."
-        };
-      }
-
-      if (tLower.includes("stock") || tLower.includes("share") || tLower.includes("equity")) {
-        return {
-          actions: [],
-          companionResponse: "Stocks mean you own a tiny piece of a company. When the company grows, so does your investment. But stocks are volatile — they go up and down. For beginners, index funds or mutual funds are a safer way to get started than picking individual stocks."
-        };
-      }
-
-      if (tLower.includes("inflation")) {
-        return {
-          actions: [],
-          companionResponse: "Inflation is basically money losing value over time. If inflation is 6% and your savings account gives you 3%, you're actually getting poorer even while your balance grows. That's why investing your money to beat inflation is so critical."
-        };
-      }
-
-      // Generic transaction fallback
-      const nums = transcript.match(/\d+/g);
-      const amount = nums ? parseInt(nums[0]) : 0;
-      const isIncome = tLower.includes("got") || tLower.includes("received") || tLower.includes("gave");
-      
-      if (amount > 0) {
-        return { 
-          actions: [{ label: isIncome ? "Income" : "Expense", amount, type: isIncome ? 'income' : 'expense' }], 
-          companionResponse: `Got it! I've recorded ${isIncome ? 'an income' : 'an expense'} of ₹${amount} in your ledger. Your updated balance is shown on the right.` 
-        };
-      }
-
       return { 
         actions: [], 
-        companionResponse: "I'm listening! Try asking me about SIPs, budgeting, stocks, or just tell me what you spent money on today." 
+        companionResponse: transcript 
+          ? `I heard you say: "${transcript}" — but my AI is temporarily overloaded. Please wait 30 seconds and try again!`
+          : `My AI is temporarily overloaded. Please wait 30 seconds and try again!`
       };
     }
 

@@ -150,7 +150,7 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
           </button>
           {confirm === 'restart' && (
             <div role="alertdialog" aria-labelledby="restart-q" className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
-              <p id="restart-q" className="font-bold text-amber-900">Start over? Your current run’s money and decisions will be cleared. XP, badges and what you’ve learned are kept, and first-time rewards aren’t paid twice.</p>
+              <p id="restart-q" className="font-bold text-amber-900">Start over? Your current run’s money and decisions will be cleared. Aura Points, badges and what you’ve learned are kept, and first-time rewards aren’t paid twice.</p>
               <div className="mt-3 flex gap-2">
                 <button type="button" className={`${btn.primary} ${focusRing}`} onClick={() => { setConfirm(null); onStart({ name, avatar }); }}>Yes, start over</button>
                 <button type="button" className={`${btn.secondary} ${focusRing}`} onClick={() => setConfirm(null)}>Keep my run</button>
@@ -161,7 +161,7 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
 
         <Card>
           <h2 className="text-xl font-black text-slate-800">Your progress</h2>
-          <p className="mt-1 text-sm font-bold text-purple-700">Level {lvl.level} · {lvl.title} · {gs.profile.xp} XP</p>
+          <p className="mt-1 text-sm font-bold text-purple-700">Level {lvl.level} · {lvl.title} · {gs.profile.xp} Aura Points</p>
           <ul className="mt-4 grid grid-cols-3 gap-2">
             {ACHIEVEMENTS.map((a) => {
               const got = !!gs.profile.achievements[a.id];
@@ -188,7 +188,7 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
           <div className="mt-4 border-t border-slate-100 pt-3">
             {confirm === 'reset' ? (
               <div role="alertdialog" aria-labelledby="reset-q" className="space-y-2">
-                <p id="reset-q" className="text-sm font-bold text-rose-800">Erase all Life Mode progress, XP and badges from this browser?</p>
+                <p id="reset-q" className="text-sm font-bold text-rose-800">Erase all Life Mode progress, Aura Points and badges from this browser?</p>
                 <div className="flex gap-2">
                   <button type="button" className={`${btn.secondary} ${focusRing} border-rose-300 text-rose-800`} onClick={() => { setConfirm(null); onReset(); }}>Erase everything</button>
                   <button type="button" className={`${btn.secondary} ${focusRing}`} onClick={() => setConfirm(null)}>Cancel</button>
@@ -279,7 +279,7 @@ function Toasts({ events, consume }) {
         {items.map((e) => (
           <motion.div key={e.key} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-xl">
-            {e.type === 'xp' && <>⭐ +{e.amount} XP · {e.reason}</>}
+            {e.type === 'xp' && <>⭐ +{e.amount} Aura Points · {e.reason}</>}
             {e.type === 'badge' && <>{e.emoji} Badge unlocked: {e.name}</>}
           </motion.div>
         ))}

@@ -61,8 +61,8 @@ export default function Hud({ gs }) {
             <p className="font-black text-slate-800">{run.character.name}</p>
             <p className="text-xs font-bold text-purple-700">Level {lvl.level} · {lvl.title}</p>
           </div>
-          <div className="w-28" aria-label={`${lvl.into} of ${lvl.needed} XP to next level`} role="img">
-            <div className="flex justify-between text-[11px] font-bold text-slate-500"><span>XP</span><span>{gs.profile.xp}</span></div>
+          <div className="w-36" aria-label={`${lvl.into} of ${lvl.needed} Aura Points to next level`} role="img">
+            <div className="flex justify-between text-[11px] font-bold text-slate-500"><span>Aura Points</span><span>{gs.profile.xp}</span></div>
             <div className="mt-1 h-2 rounded-full bg-slate-100">
               <div className="h-2 rounded-full bg-purple-500 transition-all" style={{ width: `${(lvl.into / lvl.needed) * 100}%` }} />
             </div>

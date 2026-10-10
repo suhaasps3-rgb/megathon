@@ -239,7 +239,7 @@ function Feedback({ gs, s, decision, dispatch, onDeeper, onLearn }) {
             )}
           </div>
         </div>
-        {decision.xp > 0 && <p className="mt-3 text-sm font-bold text-purple-700">+{decision.xp} XP</p>}
+        {decision.xp > 0 && <p className="mt-3 text-sm font-bold text-purple-700">+{decision.xp} Aura Points</p>}
       </Card>
 
       {check && (
@@ -318,7 +318,7 @@ function ReplayPanel({ gs, scenario, decision }) {
   const r = useMemo(() => (altId ? replayChoice(gs, scenario.id, altId) : null), [gs, scenario.id, altId]);
   return (
     <div className="mt-3 rounded-3xl border-2 border-dashed border-purple-300 bg-purple-50/50 p-4 md:p-5">
-      <p className="text-sm font-black text-purple-900">Hypothetical only. Exploring this never changes your game, XP or badges.</p>
+      <p className="text-sm font-black text-purple-900">Hypothetical only. Exploring this never changes your game, Aura Points or badges.</p>
       <label className="mt-3 block text-xs font-bold uppercase tracking-wide text-slate-600" htmlFor="replay-alt">Compare with</label>
       <select id="replay-alt" value={altId} onChange={(e) => setAltId(e.target.value)}
         className={`${focusRing} mt-1 min-h-[44px] w-full rounded-xl border-2 border-slate-200 bg-white px-3 font-bold text-slate-800`}>

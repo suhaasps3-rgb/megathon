@@ -7,3 +7,47 @@
     @apply bg-warm-50 text-slate-900;
   }
 }
+
+/* ───────── PaisaPath story world ───────── */
+.pp-font-display { font-family: 'Bricolage Grotesque', 'Noto Sans Devanagari', 'Noto Sans Telugu', ui-sans-serif, system-ui, sans-serif; }
+/* Hindi and Telugu: use Noto when it loaded (it only covers its own script), then the device's fonts. */
+:root[lang='hi'] body, :root[lang='te'] body { font-family: 'Noto Sans Devanagari', 'Noto Sans Telugu', ui-sans-serif, system-ui, sans-serif; }
+
+@keyframes pp-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes pp-drift { 0% { transform: translateX(-20px); } 50% { transform: translateX(20px); } 100% { transform: translateX(-20px); } }
+@keyframes pp-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes pp-sway { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(1.2deg); } }
+@keyframes pp-steam { 0% { transform: translateY(0); opacity: 0.7; } 100% { transform: translateY(-40px); opacity: 0; } }
+@keyframes pp-flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
+@keyframes pp-glowpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@keyframes pp-pop { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes pp-bounce { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -8px); } }
+@keyframes pp-ring { 0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7); } 100% { box-shadow: 0 0 0 18px rgba(250, 204, 21, 0); } }
+@keyframes pp-rise { 0% { transform: translateY(8px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+
+.pp-breathe { animation: pp-breathe 3.2s ease-in-out infinite; transform-box: fill-box; }
+.pp-drift { animation: pp-drift 18s ease-in-out infinite; }
+.pp-twinkle { animation: pp-twinkle 2.4s ease-in-out infinite; }
+.pp-sway { animation: pp-sway 5s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+.pp-steam { animation: pp-steam 2.6s ease-out infinite; }
+.pp-flash { animation: pp-flash 1.4s steps(2) infinite; }
+.pp-glowpulse { animation: pp-glowpulse 1.6s ease-in-out infinite; }
+.pp-pop { animation: pp-pop 0.5s cubic-bezier(.2,1.4,.4,1) both; transform-box: fill-box; transform-origin: center; }
+.pp-d1 { animation-delay: .4s; } .pp-d2 { animation-delay: .9s; } .pp-d3 { animation-delay: 1.5s; }
+.pp-marker { animation: pp-bounce 1.2s ease-in-out infinite; }
+.pp-ringpulse { animation: pp-ring 1.6s ease-out infinite; }
+.pp-rise { animation: pp-rise .35s ease-out both; }
+
+.pp-paused *, .pp-paused *::before, .pp-paused *::after { animation-play-state: paused !important; }
+.pp-reduce *, .pp-reduce *::before, .pp-reduce *::after { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .pp-world *, .pp-world *::before, .pp-world *::after { animation: none !important; transition-duration: 0.01ms !important; }
+}
+
+/* Scene: 16:9 on wide screens; on phones a 4:3 window onto the centre of the same canvas. */
+.pp-stage { position: relative; overflow: hidden; aspect-ratio: 4 / 3; }
+.pp-stage-inner { position: absolute; top: 0; bottom: 0; left: -16.6667%; width: 133.3333%; }
+@media (min-width: 768px) {
+  .pp-stage { aspect-ratio: 16 / 9; }
+  .pp-stage-inner { left: 0; width: 100%; }
+}

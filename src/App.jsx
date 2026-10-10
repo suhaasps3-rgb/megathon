@@ -7,20 +7,23 @@ import Report from './components/Report';
 import NgoDashboard from './components/NgoDashboard';
 import VoiceCompanion from './components/VoiceCompanion';
 import BlindMode from './components/BlindMode';
+import StoryApp from './components/story/StoryApp';
 const LifeMode = lazy(() => import('./components/life/LifeMode'));
 import translations from './data/translations';
-import { Mic, Eye, Gamepad2, ArrowRight } from 'lucide-react';
+import { Mic, Eye, Gamepad2, ArrowRight, Sparkles } from 'lucide-react';
 
 function App() {
   const envKey = import.meta.env.VITE_GEMINI_API_KEY;
   
-  const [state, setState] = useState(envKey ? 'ONBOARDING' : 'SETUP'); 
+  // The story world is the front door; Learn Mode (SETUP → … → REPORT) stays one tap away.
+  const [state, setState] = useState('WORLD');
   const [apiKey, setApiKey] = useState(envKey || '');
   const [profile, setProfile] = useState(null);
   const [assessmentScore, setAssessmentScore] = useState(0);
   const [gameData, setGameData] = useState(null);
   const [isNgoMode, setIsNgoMode] = useState(false);
   const [lang, setLang] = useState('en');
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   const t = translations[lang];
 
@@ -74,7 +77,21 @@ function App() {
   }
 
   if (state === 'BLIND_MODE') {
-    return <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => setState('ONBOARDING')} />;
+    return <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => setState('WORLD')} />;
+  }
+
+  if (state === 'WORLD') {
+    return (
+      <StoryApp
+        lang={lang}
+        setLang={setLang}
+        onLearn={() => setState(apiKey ? 'ONBOARDING' : 'SETUP')}
+        onSeason={() => setState('LIFE')}
+        onAudioMode={() => setState('BLIND_MODE')}
+        onVoice={() => setState('VOICE')}
+        onNgo={() => setIsNgoMode(true)}
+      />
+    );
   }
 
   return (
@@ -87,7 +104,7 @@ function App() {
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/50 py-4 px-6 sticky top-0 z-50 shadow-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <button 
-            onClick={() => setState('ONBOARDING')}
+            onClick={() => setState('WORLD')}
             className="flex items-center gap-3 text-slate-800 font-black text-2xl tracking-tight hover:opacity-80 transition-opacity"
           >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-teal-500 flex items-center justify-center text-white text-xl shadow-lg shadow-purple-500/30">
@@ -96,6 +113,12 @@ function App() {
             {t.appName}
           </button>
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+            <button
+              onClick={() => setState('WORLD')}
+              className="flex items-center gap-2 text-sm font-bold px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-500 transition-colors"
+            >
+              <Sparkles size={16} aria-hidden="true" /> <span className="sr-only sm:not-sr-only">{t.myWeek}</span>
+            </button>
             <button
               onClick={() => setState('LIFE')}
               aria-current={state === 'LIFE' ? 'page' : undefined}
@@ -161,10 +184,10 @@ function App() {
         {state === 'REPORT' && <Report data={gameData} onRestart={resetToStart} t={t} />}
         {state === 'LIFE' && (
           <Suspense fallback={<p className="p-12 text-center font-bold text-slate-500" role="status">Loading Life Mode…</p>}>
-            <LifeMode onExit={() => setState(apiKey ? 'ONBOARDING' : 'SETUP')} onLearn={() => setState('ONBOARDING')} />
+            <LifeMode onExit={() => setState('WORLD')} onLearn={() => setState('ONBOARDING')} />
           </Suspense>
         )}
-        {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => setState('ONBOARDING')} />}
+        {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => setState('WORLD')} />}
       </main>
     </div>
   );

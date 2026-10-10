@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { START, startNewRun, sanitize, REPAIR_COST } from './economy.js';
 import {
-  chooseTemplate, acceptMission, completeMission, depositToReserve, missionStateOf,
+  TEMPLATES, chooseTemplate, acceptMission, completeMission, depositToReserve, missionStateOf,
 } from './missions.js';
 
 const wallet = (over = {}) => ({ ...START, step: 'done', ...over });
@@ -12,15 +12,20 @@ describe('mission generation', () => {
   });
 
   it('never asks for money the player does not have', () => {
-    expect(chooseTemplate(wallet({ cash: REPAIR_COST - 1, savings: 0 })).id).toBe('cost-check');
+    expect(chooseTemplate(wallet({ cash: REPAIR_COST - 1, savings: 0 })).id).toBe('compare-prices');
   });
 
   it('skips a savings task when the reserve is already full', () => {
-    expect(chooseTemplate(wallet({ cash: 1000, savings: REPAIR_COST })).id).toBe('cost-check');
+    expect(chooseTemplate(wallet({ cash: 1000, savings: REPAIR_COST })).id).toBe('compare-prices');
   });
 
   it('does not offer the same task twice in a row', () => {
     const w = wallet({ cash: 1000, savings: 0, mission: { active: null, history: ['build-reserve'], completed: [] } });
+    expect(chooseTemplate(w).id).toBe('compare-prices');
+  });
+
+  it('falls back to the no-cost task when both other tasks were recent', () => {
+    const w = wallet({ cash: 1000, savings: 0, mission: { active: null, history: ['build-reserve', 'compare-prices'], completed: [] } });
     expect(chooseTemplate(w).id).toBe('cost-check');
   });
 });
@@ -35,10 +40,11 @@ describe('accepting and completing', () => {
 
   it('pays the reward once, even if completed twice', () => {
     const w = acceptMission(wallet({ cash: 0 })).state;
-    const once = completeMission(w, 'cost-check');
+    const id = w.mission.active.templateId;
+    const once = completeMission(w, id);
     expect(once.ok).toBe(true);
-    expect(once.state.aura).toBe(w.aura + 10);
-    const twice = completeMission(once.state, 'cost-check');
+    expect(once.state.aura).toBe(w.aura + TEMPLATES[id].reward);
+    const twice = completeMission(once.state, id);
     expect(twice.ok).toBe(false);
     expect(twice.state.aura).toBe(once.state.aura);
   });
@@ -49,8 +55,9 @@ describe('accepting and completing', () => {
   });
 
   it('records completed missions in history', () => {
-    const done = completeMission(acceptMission(wallet({ cash: 0 })).state, 'cost-check').state;
-    expect(missionStateOf(done).history).toEqual(['cost-check']);
+    const w = acceptMission(wallet({ cash: 0 })).state;
+    const done = completeMission(w, w.mission.active.templateId).state;
+    expect(missionStateOf(done).history).toEqual([w.mission.active.templateId]);
     expect(missionStateOf(done).active).toBeNull();
   });
 });
@@ -74,13 +81,14 @@ describe('savings mission', () => {
 describe('persistence', () => {
   it('keeps the mission field through a save and load', () => {
     const w = acceptMission(wallet({ cash: 0 })).state;
-    expect(sanitize(JSON.parse(JSON.stringify(w))).mission.active.templateId).toBe('cost-check');
+    expect(sanitize(JSON.parse(JSON.stringify(w))).mission.active.templateId).toBe(w.mission.active.templateId);
   });
 
   it('a new run clears the active mission but keeps history', () => {
-    const w = completeMission(acceptMission(wallet({ cash: 0 })).state, 'cost-check').state;
+    const a = acceptMission(wallet({ cash: 0 })).state;
+    const w = completeMission(a, a.mission.active.templateId).state;
     const next = startNewRun({ ...w, mission: { ...w.mission, active: { id: 'y', templateId: 'cost-check' } } });
     expect(next.mission.active).toBeNull();
-    expect(next.mission.history).toEqual(['cost-check']);
+    expect(next.mission.history).toEqual(w.mission.history);
   });
 });

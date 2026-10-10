@@ -5,6 +5,7 @@ import {
 } from '../../neighborhood/layout.js';
 import { collides, moveWithCollision, nearestPoi } from '../../neighborhood/movement.js';
 import { cameraRelativeMove, keyboardVector } from '../../neighborhood/controls.js';
+import { WALKER_ROUTES, createWalker, stepWalker } from '../../neighborhood/pedestrians.js';
 
 const CAMERA_DISTANCE = 8;
 const CAMERA_MIN_DISTANCE = 1.5;
@@ -33,6 +34,7 @@ export default function World({ inputRef, paused, onNearby }) {
       <Ground />
       {OBSTACLES.map((o) => <Obstacle key={o.id} o={o} />)}
       {POIS.map((p) => <Person key={p.id} p={p} />)}
+      {WALKER_ROUTES.map((r) => <Walker key={r.id} route={r} />)}
       <Player inputRef={inputRef} paused={paused} onNearby={onNearby} />
     </Canvas>
   );
@@ -134,6 +136,30 @@ function Person({ p }) {
         <torusGeometry args={[0.26, 0.05, 8, 24]} />
         <meshStandardMaterial color="#facc15" emissive="#f59e0b" emissiveIntensity={0.6} />
       </mesh>
+    </group>
+  );
+}
+
+/** A pedestrian on a sidewalk loop. The walk cycle runs only while it is actually moving. */
+function Walker({ route }) {
+  const groupRef = useRef();
+  const legsRef = useRef();
+  const state = useMemo(() => ({ ...createWalker(route), stride: 0 }), [route]);
+  useFrame((_, dt) => {
+    const d = Math.min(dt, 0.05);
+    stepWalker(state, route, d, OBSTACLES);
+    if (state.moving) state.stride += d * route.speed * 5;
+    if (groupRef.current) {
+      groupRef.current.position.set(state.x, 0, state.z);
+      groupRef.current.rotation.y = state.heading;
+    }
+    if (legsRef.current) {
+      legsRef.current.rotation.x = state.moving ? Math.sin(state.stride) * 0.5 : 0;
+    }
+  });
+  return (
+    <group ref={groupRef}>
+      <Figure color={route.color} legsRef={legsRef} />
     </group>
   );
 }

@@ -123,6 +123,13 @@ function missionOptionsFor(id, w) {
       run: (x) => completeMission(x, 'cost-check'),
     }];
   }
+  if (id === 'cycle' && active.templateId === 'compare-prices') {
+    return [{
+      label: 'Compare the bike with three months of bus fare',
+      hint: 'Assuming ₹30 a day, three months of fare is about ₹2,700, more than the ₹2,400 bike. Completes the mission.',
+      run: (x) => completeMission(x, 'compare-prices'),
+    }];
+  }
   return [];
 }
 

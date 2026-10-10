@@ -18,6 +18,15 @@ export const TEMPLATES = Object.freeze({
     // Only offered when the player can afford it, so the task never asks for money they lack.
     eligible: (w) => w.savings < REPAIR_COST && w.cash >= REPAIR_COST,
   },
+  'compare-prices': {
+    id: 'compare-prices',
+    category: 'Comparing prices and fees',
+    title: 'Compare the bike with bus fare',
+    objective: 'At Cycle Mart, compare the bike price with three months of bus fare.',
+    where: 'cycle',
+    reward: 15,
+    eligible: () => true,
+  },
   'cost-check': {
     id: 'cost-check',
     category: 'Budgeting and spending',
@@ -31,7 +40,7 @@ export const TEMPLATES = Object.freeze({
 });
 
 /** Order of preference when more than one template fits. */
-const PRIORITY = ['build-reserve', 'cost-check'];
+const PRIORITY = ['build-reserve', 'compare-prices', 'cost-check'];
 
 /** The mission state on the wallet. Older saves without one read as empty. */
 export function missionStateOf(w) {

@@ -1,323 +1,225 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, Info, ChevronRight, Sparkles, AlertTriangle, Clock, Activity, Target, BookOpen, ChevronDown } from 'lucide-react';
+import { Wallet, Info, ChevronRight, Sparkles, AlertTriangle, Target, BookOpen, ChevronDown, Activity, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { scenarios as staticScenarios } from '../data/scenarios';
 import { generateDynamicScenario } from '../services/llm';
+import translations, { fill } from '../data/translations';
+import AnimatedNumber from './ui/AnimatedNumber';
+import Mascot from './brand/Mascot';
 
-export default function Game({ apiKey, profile, assessmentScore, onComplete }) {
+const inr = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+
+function builtIn(profile) {
+  const interest = profile?.interests?.[0] || 'default';
+  return staticScenarios[interest] || staticScenarios.default;
+}
+
+export default function Game({ apiKey, profile, assessmentScore, onComplete, t }) {
+  const T = { ...translations.en, ...(t || {}) };
   const [scenario, setScenario] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  
+  const [notice, setNotice] = useState(null); // 'builtin' | 'failed'
   const [wallet, setWallet] = useState(1000);
   const [futureWealth, setFutureWealth] = useState(0);
   const [decisionIndex, setDecisionIndex] = useState(0);
   const [history, setHistory] = useState([]);
   const [feedback, setFeedback] = useState(null);
-  const [expandedConcept, setExpandedConcept] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const feedbackRef = useRef(null);
+  const questionRef = useRef(null);
 
   useEffect(() => {
-    async function loadScenario() {
-      try {
-        const dynamicScenario = await generateDynamicScenario(apiKey, profile, assessmentScore);
-        setScenario(dynamicScenario);
-      } catch (err) {
-        console.error("LLM Generation failed, using fallback:", err);
-        setError(true);
-        const interest = profile.interests[0] || 'default';
-        setScenario(staticScenarios[interest] || staticScenarios['default']);
-      } finally {
-        setLoading(false);
-      }
+    let cancelled = false;
+    // Without a key there is nothing to call, so go straight to the built-in scenario.
+    if (!apiKey) {
+      setScenario(builtIn(profile));
+      setNotice('builtin');
+      return undefined;
     }
-    loadScenario();
+    generateDynamicScenario(apiKey, profile, assessmentScore)
+      .then((s) => { if (!cancelled) setScenario(s); })
+      .catch((err) => {
+        console.error('Scenario generation failed, using built-in:', err);
+        if (cancelled) return;
+        setScenario(builtIn(profile));
+        setNotice('failed');
+      });
+    return () => { cancelled = true; };
   }, [apiKey, profile, assessmentScore]);
 
-  if (loading) {
+  useEffect(() => { if (scenario) questionRef.current?.focus({ preventScroll: true }); }, [decisionIndex, scenario]);
+
+  if (!scenario) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6">
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-          className="mb-8"
-        >
-          <div className="w-24 h-24 border-4 border-slate-200 border-t-purple-600 rounded-full flex items-center justify-center">
-            <Sparkles className="text-purple-600 animate-pulse" size={32} />
-          </div>
-        </motion.div>
-        <h2 className="text-2xl font-bold text-slate-800 mb-2">Generating Your Universe...</h2>
-        <p className="text-slate-500 font-medium max-w-sm text-center">
-          Building a unique {profile.learningStyle} life simulation.
-        </p>
+      <div role="status" aria-live="polite" className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
+        <Mascot size={96} mood="think" />
+        <h1 className="mt-6 text-2xl font-extrabold text-ink-900">{T.gmLoadingTitle}</h1>
+        <p className="mt-2 max-w-sm text-slate-600">{fill(T.gmLoadingSub, { style: profile?.learningStyle || '' })}</p>
       </div>
     );
   }
 
-  const currentDecision = scenario.decisions[decisionIndex];
-  const chapters = ["Chapter 1: Everyday Choices", "Chapter 2: Looking Ahead", "Chapter 3: The Unexpected"];
-  const currentChapter = chapters[decisionIndex] || `Chapter ${decisionIndex + 1}`;
+  const total = scenario.decisions.length;
+  const decision = scenario.decisions[decisionIndex];
+  const last = decisionIndex === total - 1;
+  const goal = profile?.goal;
+  const goalPct = goal ? Math.min(100, Math.max(0, (wallet / goal.cost) * 100)) : 0;
+  const affordable = (c) => (Number(c.cost) || 0) <= wallet;
+  const someAffordable = decision.choices.some(affordable);
 
-  const handleChoice = (choice) => {
-    const cost = Number(choice.cost) || 0;
-    const impact = Number(choice.futureImpact) || 0;
-    
-    setWallet(wallet - cost);
-    setFutureWealth(futureWealth + impact);
+  const choose = (choice) => {
+    if (feedback) return;
+    setWallet((w) => w - (Number(choice.cost) || 0));
+    setFutureWealth((f) => f + (Number(choice.futureImpact) || 0));
     setFeedback(choice);
-    setExpandedConcept(false);
-    setHistory([...history, { decision: currentDecision.text, choice }]);
+    setExpanded(false);
+    setHistory((h) => [...h, { decision: decision.text, choice }]);
   };
 
-  const nextStep = () => {
+  const next = () => {
     setFeedback(null);
-    if (decisionIndex < scenario.decisions.length - 1) {
-      setDecisionIndex(i => i + 1);
-    } else {
-      onComplete({ wallet, history, futureWealth, profile });
-    }
+    if (!last) setDecisionIndex((i) => i + 1);
+    else onComplete({ wallet, history, futureWealth, profile });
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6">
-      
-      {/* PERSISTENT HUD */}
-      <div className="bg-slate-900 text-white rounded-3xl p-4 md:p-6 mb-8 shadow-2xl border border-slate-700">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-4xl shadow-inner border border-slate-700/50 shrink-0">
-              {profile?.avatar || '😎'}
-            </div>
+    <div className="mx-auto max-w-5xl px-4 pb-16 pt-4 sm:px-6">
+      {/* Always-visible HUD: money in, money out, and progress toward the goal. */}
+      <section aria-label={T.gmWallet} className="sticky top-2 z-20 mb-6 rounded-3xl bg-ink-900 p-4 text-white shadow-lift sm:p-5">
+        <div className="grid gap-4 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-3xl" aria-hidden="true">{profile?.avatar || '😎'}</span>
             <div>
-              <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-purple-400">
-                {profile?.name || 'Player'}
-              </h2>
-              <div className="flex items-center gap-2 text-slate-400 text-sm font-bold uppercase tracking-wider mt-1">
-                <Clock size={14} className="text-teal-400" /> {currentChapter}
+              <p className="text-lg font-extrabold leading-tight">{profile?.name}</p>
+              <p className="text-sm font-bold text-teal-300">{fill(T.gmChapter, { n: decisionIndex + 1, total })}</p>
+            </div>
+          </div>
+
+          {goal ? (
+            <div>
+              <div className="flex items-end justify-between gap-2 text-sm">
+                <span className="flex items-center gap-1 font-bold text-slate-200"><Target size={14} aria-hidden="true" /> {fill(T.gmGoal, { goal: goal.label })}</span>
+                <span className="font-extrabold">{inr(wallet)} / {inr(goal.cost)}</span>
               </div>
-            </div>
-          </div>
-
-          <div className="flex-1 w-full md:px-8">
-            {profile?.goal && (
-              <div className="bg-slate-800/80 p-3 rounded-2xl border border-slate-700/50">
-                <div className="flex justify-between items-end mb-2">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                    <Target size={12} className="text-amber-400" /> Goal: {profile.goal.label}
-                  </span>
-                  <span className="text-sm font-black text-amber-400">
-                    ₹{wallet} / ₹{profile.goal.cost}
-                  </span>
-                </div>
-                <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(100, Math.max(0, (wallet / profile.goal.cost) * 100))}%` }}
-                    className={`h-full ${wallet >= profile.goal.cost ? 'bg-emerald-400' : 'bg-amber-400'}`}
-                  />
-                </div>
+              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/15" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(goalPct)} aria-label={fill(T.gmGoal, { goal: goal.label })}>
+                <motion.div className={`h-full ${wallet >= goal.cost ? 'bg-teal-400' : 'bg-saffron-400'}`} animate={{ width: `${goalPct}%` }} transition={{ duration: 0.4 }} />
               </div>
-            )}
-          </div>
-
-          <div className="flex gap-4 md:gap-8 bg-slate-800/80 p-3 md:p-4 rounded-2xl border border-slate-700/50 w-full md:w-auto justify-between">
-            <div>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
-                <Wallet size={12} /> Wallet
-              </p>
-              <p className="text-2xl font-black text-emerald-400">₹{wallet}</p>
+              {history.length > 0 && wallet >= goal.cost && <p className="mt-1 flex items-center gap-1 text-xs font-bold text-teal-300"><CheckCircle2 size={14} aria-hidden="true" /> {T.gmGoalReached}</p>}
             </div>
-            <div className="w-px bg-slate-700"></div>
-            <div>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
-                <Sparkles size={12} /> Age 30 Vault
-              </p>
-              <p className="text-2xl font-black text-purple-400">₹{futureWealth.toLocaleString()}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+          ) : <span />}
 
-      {error && (
-        <div className="mb-6 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl flex items-center gap-3">
-          <AlertTriangle size={20} className="shrink-0 text-amber-600" />
-          <p className="text-sm font-medium">Using pre-built scenarios (AI generation failed or timed out).</p>
+          <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-white/10 p-3 text-center sm:text-left">
+            <div>
+              <dt className="flex items-center justify-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-300 sm:justify-start"><Wallet size={12} aria-hidden="true" /> {T.gmWallet}</dt>
+              <dd className="text-xl font-extrabold text-teal-300">₹<AnimatedNumber value={wallet} /></dd>
+            </div>
+            <div>
+              <dt className="flex items-center justify-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-300 sm:justify-start"><Sparkles size={12} aria-hidden="true" /> {T.gmVault}</dt>
+              <dd className="text-xl font-extrabold text-purple-300">₹<AnimatedNumber value={futureWealth} /></dd>
+              <dd className="sr-only">{T.gmVaultNote}</dd>
+            </div>
+          </dl>
         </div>
+        <p className="mt-2 hidden text-xs text-slate-300 sm:block">{T.gmVaultNote}</p>
+      </section>
+
+      {notice && (
+        <p role="status" className="mb-6 flex items-start gap-3 rounded-2xl border border-saffron-200 bg-saffron-50 px-4 py-3 text-sm text-saffron-900">
+          {notice === 'failed' ? <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" /> : <Info size={18} className="mt-0.5 shrink-0" aria-hidden="true" />}
+          {notice === 'failed' ? T.gmAiFailed : T.gmBuiltIn}
+        </p>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8">
-        
-        {/* Left Panel: Scene / Context */}
-        <div className="md:col-span-5 space-y-6">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden"
-          >
-            <div className="h-48 bg-gradient-to-br from-indigo-500 to-purple-600 relative overflow-hidden flex items-end p-6">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-3xl rounded-full"></div>
-              <h2 className="text-white text-3xl font-black relative z-10 drop-shadow-md">
-                {scenario.theme}
-              </h2>
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div className="space-y-6">
+          <div className="card overflow-hidden">
+            <div className="bg-gradient-to-br from-purple-600 to-purple-800 px-6 py-5">
+              <p className="eyebrow !text-purple-100">{scenario.theme}</p>
+              <p className="mt-2 text-base leading-relaxed text-white/95">{scenario.setup}</p>
             </div>
-            <div className="p-6 md:p-8">
-              <p className="text-slate-600 text-lg leading-relaxed font-medium">
-                {scenario.setup}
-              </p>
-            </div>
-          </motion.div>
-          
-          {history.length > 0 && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="hidden md:block bg-slate-50 p-6 rounded-[2rem] border border-slate-100 shadow-sm"
-            >
-              <h3 className="font-bold text-slate-700 mb-4 uppercase tracking-wide text-sm flex items-center gap-2">
-                <Activity size={16} /> Life Log
-              </h3>
-              <div className="space-y-4">
-                {history.map((h, i) => (
-                  <div key={i} className="flex gap-3 text-sm">
-                    <span className="font-black text-slate-300">0{i+1}</span>
-                    <span className="text-slate-600 font-medium">{h.choice.text}</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </div>
+            <div className="p-6 sm:p-8">
+              <h1 ref={questionRef} tabIndex={-1} className="text-2xl font-extrabold leading-snug text-ink-900 outline-none sm:text-3xl">{decision.text}</h1>
 
-        {/* Right Panel: Story & Choices */}
-        <div className="md:col-span-8">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8 md:p-10 min-h-[500px] flex flex-col"
-          >
-            <div className="mb-8">
-              <div className="flex items-center gap-4 mb-6">
-                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-bold text-sm">
-                  {decisionIndex + 1}
-                </span>
-                <div className="h-1 flex-1 bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-gradient-to-r from-purple-500 to-teal-400"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${((decisionIndex + 1) / scenario.decisions.length) * 100}%` }}
-                  />
-                </div>
-              </div>
-              <h2 className="text-3xl font-black text-slate-800 leading-tight">
-                {currentDecision.text}
-              </h2>
-            </div>
-
-            <AnimatePresence mode="wait">
-              {!feedback ? (
-                <motion.div 
-                  key="choices"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="space-y-4 mt-auto"
-                >
-                  {currentDecision.choices.map((choice, i) => (
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      key={i}
-                      onClick={() => handleChoice(choice)}
-                      className="w-full text-left p-6 rounded-2xl border-2 border-slate-100 hover:border-purple-400 hover:bg-purple-50 transition-all flex justify-between items-center group shadow-sm hover:shadow-md"
-                    >
-                      <span className="font-semibold text-slate-800 text-lg pr-4">{choice.text}</span>
-                      {Number(choice.cost) > 0 && (
-                        <span className="shrink-0 text-red-500 font-black bg-red-50 border border-red-100 px-4 py-2 rounded-xl text-sm">
-                          -₹{choice.cost}
+              <AnimatePresence mode="wait" initial={false}>
+                {!feedback ? (
+                  <motion.fieldset key={`c${decisionIndex}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="mt-6 space-y-3">
+                    <legend className="sr-only">{T.gmChoose}</legend>
+                    {decision.choices.map((choice, i) => {
+                      const cost = Number(choice.cost) || 0;
+                      const blocked = someAffordable && !affordable(choice);
+                      return (
+                        <button key={i} type="button" onClick={() => choose(choice)} disabled={blocked} className="choice flex w-full items-center justify-between gap-4 p-4 text-left disabled:cursor-not-allowed disabled:opacity-50">
+                          <span>
+                            <span className="block text-lg font-bold text-ink-900">{choice.text}</span>
+                            {blocked && <span className="mt-1 block text-sm text-slate-600">{T.gmCantAfford}</span>}
+                          </span>
+                          <span className={`shrink-0 rounded-xl px-3 py-1.5 text-sm font-extrabold ${cost > 0 ? 'bg-rose-50 text-rose-700' : 'bg-teal-50 text-teal-700'}`}>
+                            {cost > 0 ? fill(T.gmCost, { n: cost }) : T.gmFree}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </motion.fieldset>
+                ) : (
+                  <motion.div key="fb" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} onAnimationComplete={() => feedbackRef.current?.focus()} className="mt-6">
+                    <div role="status" aria-live="polite" className={`rounded-3xl border p-5 sm:p-6 ${feedback.isGood ? 'border-teal-200 bg-teal-50' : 'border-saffron-200 bg-saffron-50'}`}>
+                      <div className="flex gap-4">
+                        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${feedback.isGood ? 'bg-teal-500 text-white' : 'bg-saffron-500 text-white'}`}>
+                          {feedback.isGood ? <CheckCircle2 size={24} aria-hidden="true" /> : <Lightbulb size={24} aria-hidden="true" />}
                         </span>
-                      )}
-                    </motion.button>
-                  ))}
-                </motion.div>
-              ) : (
-                <motion.div 
-                  key="feedback"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="mt-auto"
-                >
-                  <div className={`p-8 rounded-3xl border-2 ${feedback.isGood ? 'bg-teal-50 border-teal-200' : 'bg-amber-50 border-amber-200'} mb-6`}>
-                    <div className="flex gap-4">
-                      <div className={`shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${feedback.isGood ? 'bg-teal-100 text-teal-600' : 'bg-amber-100 text-amber-600'}`}>
-                        <Info size={24} />
+                        <div>
+                          <h2 ref={feedbackRef} tabIndex={-1} className={`text-xl font-extrabold outline-none ${feedback.isGood ? 'text-teal-900' : 'text-saffron-900'}`}>
+                            {feedback.isGood ? T.gmSmart : T.gmThink}
+                          </h2>
+                          <p className={`mt-1 text-lg leading-relaxed ${feedback.isGood ? 'text-teal-900' : 'text-saffron-900'}`}>{feedback.feedback}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className={`text-xl font-bold mb-2 ${feedback.isGood ? 'text-teal-900' : 'text-amber-900'}`}>
-                          {feedback.isGood ? 'Smart Move!' : 'Think About It...'}
-                        </h3>
-                        <p className={`font-medium text-lg leading-relaxed ${feedback.isGood ? 'text-teal-800' : 'text-amber-800'}`}>
-                          {feedback.feedback}
-                        </p>
-                        
-                        {feedback.concept && (
-                          <div className="mt-6">
-                            <button
-                              onClick={() => setExpandedConcept(!expandedConcept)}
-                              className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white p-4 rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex justify-between items-center group"
-                            >
-                              <span className="flex items-center gap-2">
-                                <Sparkles size={18} className={expandedConcept ? "animate-pulse" : ""} /> 
-                                Concept Unlocked: {feedback.concept.name}
-                              </span>
-                              <ChevronDown size={20} className={`transition-transform duration-300 ${expandedConcept ? 'rotate-180' : ''}`} />
-                            </button>
 
-                            <AnimatePresence>
-                              {expandedConcept && (
-                                <motion.div 
-                                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                                  animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
-                                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                                  className="bg-indigo-950 rounded-2xl p-6 border border-indigo-500/30 overflow-hidden relative"
-                                >
-                                  <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 blur-3xl rounded-full pointer-events-none"></div>
-                                  <div className="relative z-10">
-                                    <h4 className="flex items-center gap-2 text-indigo-400 font-bold uppercase tracking-wider text-xs mb-3">
-                                      <BookOpen size={14} /> Deep Dive
-                                    </h4>
-                                    <p className="text-indigo-100/90 font-medium text-sm leading-relaxed mb-4">
-                                      {feedback.concept.description}
-                                    </p>
-                                    
-                                    <div className="bg-indigo-900/50 p-4 rounded-xl border border-indigo-500/20">
-                                      <span className="text-indigo-400 font-bold text-[10px] uppercase tracking-widest mb-1 block">
-                                        Real World Example
-                                      </span>
-                                      <p className="text-white/80 text-sm italic">
-                                        "{feedback.concept.example}"
-                                      </p>
-                                    </div>
+                      {feedback.concept && (
+                        <div className="mt-5">
+                          <button type="button" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)} className="btn-brand w-full justify-between">
+                            <span className="flex items-center gap-2"><Sparkles size={18} aria-hidden="true" /> {fill(T.gmConcept, { name: feedback.concept.name })}</span>
+                            <ChevronDown size={20} aria-hidden="true" className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+                          </button>
+                          <AnimatePresence initial={false}>
+                            {expanded && (
+                              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                                <div className="mt-3 rounded-2xl bg-ink-900 p-5 text-white">
+                                  <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-purple-200"><BookOpen size={14} aria-hidden="true" /> {T.gmDeepDive}</h3>
+                                  <p className="mt-2 leading-relaxed text-slate-100">{feedback.concept.description}</p>
+                                  <div className="mt-4 rounded-xl bg-white/10 p-4">
+                                    <p className="text-xs font-extrabold uppercase tracking-wider text-purple-200">{T.gmExample}</p>
+                                    <p className="mt-1 text-slate-100">{feedback.concept.example}</p>
                                   </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </div>
-                        )}
-                      </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  
-                  <button 
-                    onClick={nextStep}
-                    className="w-full bg-slate-900 text-white px-8 py-5 rounded-2xl font-bold text-lg hover:bg-slate-800 transition-all flex justify-center items-center gap-3 shadow-xl"
-                  >
-                    {decisionIndex < scenario.decisions.length - 1 ? 'Next Chapter' : 'See Results'}
-                    <ChevronRight size={24} className="text-teal-400" />
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+                    <button type="button" onClick={next} className="btn-primary mt-5 w-full justify-center py-4 text-lg">
+                      {last ? T.gmSeeResults : T.gmNext} <ChevronRight size={22} aria-hidden="true" />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
         </div>
+
+        {history.length > 0 && (
+          <aside aria-label={T.gmLog} className="card h-fit p-5">
+            <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider text-slate-600"><Activity size={16} aria-hidden="true" /> {T.gmLog}</h2>
+            <ol className="mt-3 space-y-3">
+              {history.map((h, i) => (
+                <li key={i} className="flex gap-3 text-sm">
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${h.choice.isGood ? 'bg-teal-100 text-teal-700' : 'bg-saffron-100 text-saffron-800'}`}>{i + 1}</span>
+                  <span className="text-slate-700">{h.choice.text}</span>
+                </li>
+              ))}
+            </ol>
+          </aside>
+        )}
       </div>
     </div>
   );

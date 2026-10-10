@@ -3,7 +3,66 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
   body {
-    @apply bg-warm-50 text-slate-900;
+    @apply bg-canvas font-sans text-ink-900 antialiased;
+  }
+  h1, h2, h3 {
+    @apply font-display tracking-tight;
+  }
+  :focus-visible {
+    outline: 3px solid theme('colors.purple.500');
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl px-5 font-bold transition duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
+  }
+  .btn-primary {
+    @apply btn bg-ink-900 text-white shadow-card hover:bg-ink-800;
+  }
+  .btn-brand {
+    @apply btn bg-purple-600 text-white shadow-glow hover:bg-purple-700;
+  }
+  .btn-secondary {
+    @apply btn border border-slate-200 bg-white text-ink-900 hover:border-slate-300 hover:bg-slate-50;
+  }
+  .btn-ghost {
+    @apply inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-sm font-bold text-purple-700 transition hover:bg-purple-50;
+  }
+  .card {
+    @apply rounded-3xl border border-slate-200/70 bg-white shadow-card;
+  }
+  .eyebrow {
+    @apply text-xs font-bold uppercase tracking-[0.14em] text-purple-700;
+  }
+  .tag-sim {
+    @apply inline-flex items-center gap-1 rounded-full bg-saffron-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-saffron-800;
+  }
+  .choice {
+    @apply w-full rounded-2xl border-2 border-slate-200 bg-white text-left transition duration-150 hover:border-purple-300 hover:shadow-card;
+  }
+  .choice[aria-pressed='true'] {
+    @apply border-purple-500 bg-purple-50 shadow-card;
+  }
+  .app-bg {
+    background-color: theme('colors.canvas');
+    background-image:
+      radial-gradient(60rem 30rem at 85% -10%, rgba(109, 85, 250, 0.10), transparent 60%),
+      radial-gradient(40rem 24rem at -10% 10%, rgba(18, 173, 134, 0.08), transparent 60%);
+    background-attachment: fixed;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { parseVoiceAllocation } from '../services/llm';
+import { parseOffline, offlineReply } from '../services/offlineLedger';
 
 export default function BlindMode({ apiKey, lang, t, onExit }) {
   const [wallet, setWallet] = useState(1000);
@@ -93,16 +94,11 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
   };
 
   const processInput = async (transcript) => {
-    if (!apiKey) {
-      const errorMsg = "API Key is missing. Please press Escape to exit and enter your key in the setup screen.";
-      setMessage(errorMsg);
-      speak(errorMsg);
-      return;
-    }
-
     setMessage(t.processing);
-    
-    const result = await parseVoiceAllocation(apiKey, transcript, lang);
+
+    // Without a key, Audio Mode still logs simple sentences locally.
+    const offline = !apiKey;
+    const result = offline ? parseOffline(transcript) : await parseVoiceAllocation(apiKey, transcript, lang);
     
     let netChange = 0;
     if (result.actions && Array.isArray(result.actions)) {
@@ -118,7 +114,9 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
     setWallet(prev => {
       const newWallet = prev + netChange;
       let reply = result.companionResponse;
-      if (netChange !== 0) {
+      if (offline) {
+        reply = offlineReply(result.actions, newWallet);
+      } else if (netChange !== 0) {
         reply += ` Your new balance is ${newWallet} rupees.`;
       }
       setMessage(reply);

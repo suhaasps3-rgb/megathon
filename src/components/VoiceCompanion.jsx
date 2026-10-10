@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Check, X, ShieldAlert, Sparkles, Send, Calculator, Volume2, VolumeX } from 'lucide-react';
 import { parseVoiceAllocation } from '../services/llm';
+import { parseOffline, offlineReply } from '../services/offlineLedger';
 
 export default function VoiceCompanion({ apiKey, onComplete }) {
   const [isListening, setIsListening] = useState(false);
@@ -60,14 +61,9 @@ export default function VoiceCompanion({ apiKey, onComplete }) {
     setProcessing(true);
     setTranscript(input);
     
-    if (!apiKey) {
-      setCompanionReply("Debug Error: API Key is missing! Please return to setup and enter your Gemini API Key.");
-      setProcessing(false);
-      return;
-    }
-
-    // Parse using LLM
-    const result = await parseVoiceAllocation(apiKey, input);
+    // Without a key the mentor still logs simple sentences locally.
+    const offline = !apiKey;
+    const result = offline ? parseOffline(input) : await parseVoiceAllocation(apiKey, input);
     
     let netChange = 0;
     const newLedgerItems = [];
@@ -89,15 +85,16 @@ export default function VoiceCompanion({ apiKey, onComplete }) {
 
     setLedger([...ledger, ...newLedgerItems]);
     setWallet(prev => prev + netChange);
-    
-    setCompanionReply(result.companionResponse);
+
+    const reply = offline ? offlineReply(result.actions, wallet + netChange) : result.companionResponse;
+    setCompanionReply(reply);
     setProcessing(false);
     setTextInput('');
 
     // Text-to-Speech
     if (!isMuted && window.speechSynthesis) {
       window.speechSynthesis.cancel(); // Stop current speech if any
-      const utterance = new SpeechSynthesisUtterance(result.companionResponse);
+      const utterance = new SpeechSynthesisUtterance(reply);
       utterance.rate = 1.0;
       utterance.pitch = 1.1; // Slightly friendly tone
       window.speechSynthesis.speak(utterance);

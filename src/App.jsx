@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import Setup from './components/Setup';
+import { MotionConfig } from 'framer-motion';
+import Home from './components/Home';
 import Onboarding from './components/Onboarding';
 import Assessment from './components/Assessment';
 import Game from './components/Game';
@@ -7,15 +8,27 @@ import Report from './components/Report';
 import NgoDashboard from './components/NgoDashboard';
 import VoiceCompanion from './components/VoiceCompanion';
 import BlindMode from './components/BlindMode';
+import AppHeader, { LEARN_STATES } from './components/shell/AppHeader';
+import JourneyBar from './components/shell/JourneyBar';
+import Mascot from './components/brand/Mascot';
+import translations from './data/translations';
 const LifeMode = lazy(() => import('./components/life/LifeMode'));
 const NeighborhoodGame = lazy(() => import('./components/world/NeighborhoodGame'));
-import translations from './data/translations';
-import { Mic, Eye, Gamepad2, ArrowRight, Box } from 'lucide-react';
+
+function Loading({ label }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 p-16 text-center" role="status">
+      <Mascot size={64} mood="think" />
+      <p className="font-bold text-slate-600">{label}</p>
+    </div>
+  );
+}
 
 function App() {
   const envKey = import.meta.env.VITE_GEMINI_API_KEY;
-  
-  const [state, setState] = useState(envKey ? 'ONBOARDING' : 'SETUP'); 
+
+  const [state, setState] = useState('HOME');
+  const [lastLearn, setLastLearn] = useState('ONBOARDING');
   const [apiKey, setApiKey] = useState(envKey || '');
   const [profile, setProfile] = useState(null);
   const [assessmentScore, setAssessmentScore] = useState(0);
@@ -25,34 +38,38 @@ function App() {
 
   const t = translations[lang];
 
-  const langLabels = { en: 'EN', hi: 'हि', te: 'తె' };
-
-  const handleSetupComplete = (key) => {
-    setApiKey(key);
-    setState('ONBOARDING');
+  const go = (next) => {
+    const target = next === 'LEARN' ? lastLearn : next;
+    if (LEARN_STATES.includes(target)) setLastLearn(target);
+    setState(target);
+    window.scrollTo?.(0, 0);
   };
 
   const handleOnboardingComplete = (data) => {
     setProfile(data);
-    setState('ASSESSMENT');
+    go('ASSESSMENT');
   };
 
   const handleAssessmentComplete = (score) => {
     setAssessmentScore(score);
-    setState('GAME');
+    go('GAME');
   };
 
   const handleGameComplete = (data) => {
     setGameData(data);
-    setState('REPORT');
+    go('REPORT');
   };
 
   const resetToStart = () => {
     setProfile(null);
     setAssessmentScore(0);
     setGameData(null);
-    setState('ONBOARDING');
+    go('ONBOARDING');
   };
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -60,7 +77,7 @@ function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
       if (e.target.isContentEditable) return;
 
-      if (e.code === 'Space' && !e.repeat && state !== 'BLIND_MODE' && state !== 'LIFE' && state !== 'NEIGHBORHOOD') {
+      if (e.code === 'Space' && !e.repeat && !['BLIND_MODE', 'LIFE', 'NEIGHBORHOOD'].includes(state)) {
         e.preventDefault();
         setState('BLIND_MODE');
       }
@@ -71,115 +88,59 @@ function App() {
   }, [state]);
 
   if (isNgoMode) {
-    return <NgoDashboard onBack={() => setIsNgoMode(false)} />;
+    return <NgoDashboard t={t} onBack={() => setIsNgoMode(false)} />;
   }
 
   if (state === 'BLIND_MODE') {
-    return <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => setState('ONBOARDING')} />;
+    return <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => go('HOME')} />;
   }
 
   return (
-    <div className="min-h-screen pb-12 font-sans selection:bg-purple-500/30">
-      
-      <div className="sr-only" role="alert" aria-live="assertive">
-        Welcome to PaisaPath. If you are visually impaired, please press the Spacebar now to enter the fully accessible Audio Mode.
-      </div>
-
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/50 py-4 px-6 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <button 
-            onClick={() => setState('ONBOARDING')}
-            className="flex items-center gap-3 text-slate-800 font-black text-2xl tracking-tight hover:opacity-80 transition-opacity"
-          >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-teal-500 flex items-center justify-center text-white text-xl shadow-lg shadow-purple-500/30">
-              ₹
-            </div>
-            {t.appName}
-          </button>
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <button
-              onClick={() => setState('NEIGHBORHOOD')}
-              aria-current={state === 'NEIGHBORHOOD' ? 'page' : undefined}
-              className={`flex items-center gap-2 text-sm font-bold px-3 py-1.5 rounded-lg transition-colors ${state === 'NEIGHBORHOOD' ? 'bg-sky-600 text-white' : 'bg-sky-50 text-sky-800 hover:bg-sky-100'}`}
-            >
-              <Box size={16} aria-hidden="true" /> <span className="sr-only sm:not-sr-only">3D World</span>
-            </button>
-            <button
-              onClick={() => setState('LIFE')}
-              aria-current={state === 'LIFE' ? 'page' : undefined}
-              className={`flex items-center gap-2 text-sm font-bold px-3 py-1.5 rounded-lg transition-colors ${state === 'LIFE' ? 'bg-teal-600 text-white' : 'bg-teal-50 text-teal-800 hover:bg-teal-100'}`}
-            >
-              <Gamepad2 size={16} aria-hidden="true" /> <span className="sr-only sm:not-sr-only">{t.lifeMode}</span>
-            </button>
-            {/* Language Selector */}
-            <div className="flex bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-              {Object.entries(langLabels).map(([code, label]) => (
-                <button
-                  key={code}
-                  onClick={() => setLang(code)}
-                  className={`px-3 py-1.5 text-sm font-bold transition-colors ${lang === code ? 'bg-purple-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <button 
-              onClick={() => setState('BLIND_MODE')}
-              className="flex items-center gap-2 text-sm font-bold bg-yellow-400 text-black px-4 py-1.5 rounded-lg hover:bg-yellow-500 transition-colors shadow-sm"
-            >
-              <Eye size={16} /> {t.audioMode}
-            </button>
-            <button 
-              onClick={() => setState('VOICE')}
-              className="hidden md:flex items-center gap-2 text-sm font-bold bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors"
-            >
-              <Mic size={16} /> {t.voiceLevel}
-            </button>
-            <button 
-              onClick={() => setIsNgoMode(true)}
-              className="text-xs font-bold bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors"
-            >
-              {t.ngoLogin}
-            </button>
-          </div>
+    <MotionConfig reducedMotion="user">
+      <div className="app-bg min-h-screen overflow-x-clip pb-16">
+        <a href="#main" className="sr-only z-[60] rounded-xl bg-ink-900 px-4 py-3 font-bold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
+          {t.skipToContent}
+        </a>
+        <div className="sr-only" role="alert" aria-live="assertive">
+          {t.blindWelcome}
         </div>
-      </header>
 
-      <main className="relative">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] pointer-events-none"></div>
-        {state === 'SETUP' && <Setup onComplete={handleSetupComplete} onLifeMode={() => setState('LIFE')} t={t} />}
-        {state === 'ONBOARDING' && (
-          <div className="max-w-4xl mx-auto px-6 pt-6">
-            <button
-              onClick={() => setState('LIFE')}
-              className="w-full flex items-center justify-between gap-4 text-left rounded-2xl border-2 border-teal-200 bg-teal-50 px-5 py-4 hover:border-teal-400 transition-colors"
-            >
-              <span>
-                <span className="block font-black text-teal-900">{t.lifeModeTitle}</span>
-                <span className="block text-sm text-teal-800">{t.lifeModeDesc}</span>
-              </span>
-              <span className="shrink-0 flex items-center gap-1 font-bold text-teal-800">{t.lifeModeCta} <ArrowRight size={18} /></span>
-            </button>
-          </div>
-        )}
-        {state === 'ONBOARDING' && <Onboarding onComplete={handleOnboardingComplete} t={t} />}
-        {state === 'ASSESSMENT' && <Assessment apiKey={apiKey} onComplete={handleAssessmentComplete} t={t} />}
-        {state === 'GAME' && <Game apiKey={apiKey} profile={profile} assessmentScore={assessmentScore} onComplete={handleGameComplete} />}
-        {state === 'REPORT' && <Report data={gameData} onRestart={resetToStart} t={t} />}
-        {state === 'LIFE' && (
-          <Suspense fallback={<p className="p-12 text-center font-bold text-slate-500" role="status">Loading Life Mode…</p>}>
-            <LifeMode onExit={() => setState(apiKey ? 'ONBOARDING' : 'SETUP')} onLearn={() => setState('ONBOARDING')} />
-          </Suspense>
-        )}
-        {state === 'NEIGHBORHOOD' && (
-          <Suspense fallback={<p className="p-12 text-center font-bold text-slate-500" role="status">Loading the neighborhood…</p>}>
-            <NeighborhoodGame onExit={() => setState(apiKey ? 'ONBOARDING' : 'SETUP')} />
-          </Suspense>
-        )}
-        {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => setState('ONBOARDING')} />}
-      </main>
-    </div>
+        <AppHeader t={t} state={state} lang={lang} setLang={setLang} onNavigate={go} onNgo={() => setIsNgoMode(true)} />
+        <JourneyBar state={state} t={t} />
+
+        <main id="main" className="relative">
+          {state === 'HOME' && (
+            <Home
+              t={t}
+              profile={profile}
+              hasAi={Boolean(apiKey)}
+              canEditKey={!envKey}
+              onSetKey={setApiKey}
+              onLearn={() => go('LEARN')}
+              onLife={() => go('LIFE')}
+              on3d={() => go('NEIGHBORHOOD')}
+              onMentor={() => go('VOICE')}
+              onAudio={() => go('BLIND_MODE')}
+            />
+          )}
+          {state === 'ONBOARDING' && <Onboarding onComplete={handleOnboardingComplete} t={t} />}
+          {state === 'ASSESSMENT' && <Assessment apiKey={apiKey} onComplete={handleAssessmentComplete} t={t} />}
+          {state === 'GAME' && <Game apiKey={apiKey} profile={profile} assessmentScore={assessmentScore} onComplete={handleGameComplete} t={t} />}
+          {state === 'REPORT' && <Report data={gameData} onRestart={resetToStart} t={t} />}
+          {state === 'LIFE' && (
+            <Suspense fallback={<Loading label={t.lifeMode} />}>
+              <LifeMode onExit={() => go('HOME')} onLearn={() => go('LEARN')} />
+            </Suspense>
+          )}
+          {state === 'NEIGHBORHOOD' && (
+            <Suspense fallback={<Loading label={t.nav3d} />}>
+              <NeighborhoodGame onExit={() => go('HOME')} />
+            </Suspense>
+          )}
+          {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => go('HOME')} />}
+        </main>
+      </div>
+    </MotionConfig>
   );
 }
 

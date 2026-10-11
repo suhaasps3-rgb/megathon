@@ -2,6 +2,8 @@
 
 Powered by Vanguard
 
+<img src="public/vanguard-logo.png" alt="Vanguard" height="32">
+
 ## Requirements
 
 - Node.js 18 or newer (with npm)
@@ -56,6 +58,7 @@ Third-party software and assets used by this project:
 - [Lucide](https://lucide.dev) icons (`lucide-react`), ISC License
 - [three.js](https://threejs.org) and [React Three Fiber](https://docs.pmnd.rs/react-three-fiber), MIT License (3D World)
 - [Google Fonts](https://fonts.google.com): Plus Jakarta Sans, Bricolage Grotesque, Noto Sans Devanagari and Noto Sans Telugu, SIL Open Font License 1.1
+- Vanguard name and logo (`public/vanguard-logo.png`) are trademarks of The Vanguard Group, shown to credit the problem statement sponsor
 
 Optional: AI features use the Google Gemini API when a key is configured.
 
@@ -63,4 +66,4 @@ Project code is released under the MIT License (see `LICENSE`).
 
 ---
 
-PaisaPath · Powered by Vanguard
+PaisaPath · Powered by Vanguard <img src="public/vanguard-logo.png" alt="Vanguard" height="16">

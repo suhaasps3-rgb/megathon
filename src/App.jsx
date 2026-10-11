@@ -27,17 +27,24 @@ function Loading({ label }) {
 }
 
 function App() {
-  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const envKey = import.meta.env.VITE_GEMINI_API_KEY || '';
   const savedKey = typeof window !== 'undefined' ? localStorage.getItem('paisapath_gemini_key') : null;
 
   const [state, setState] = useState('HOME');
   const [lastLearn, setLastLearn] = useState('ONBOARDING');
-  const [apiKey, setApiKey] = useState(savedKey || envKey || '');
+  const [apiKey, setApiKey] = useState(envKey || savedKey || '');
   const [profile, setProfile] = useState(null);
   const [assessmentScore, setAssessmentScore] = useState(0);
   const [gameData, setGameData] = useState(null);
   const [isNgoMode, setIsNgoMode] = useState(false);
   const [lang, setLang] = useState('en');
+
+  useEffect(() => {
+    if (envKey) {
+      localStorage.setItem('paisapath_gemini_key', envKey);
+      setApiKey(envKey);
+    }
+  }, [envKey]);
 
   const handleSetApiKey = (key) => {
     setApiKey(key);

@@ -1,6 +1,6 @@
 // Free-tier Gemini keys allow only a few requests per minute per model, and busy models
 // return 503. Each model has its own quota, so on a 429/503 we move to the next one.
-const GEMINI_MODELS = ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+const GEMINI_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
 const RETRYABLE = new Set([404, 429, 500, 503]);
 
 // Thinking models can return thought parts first; keep only the answer text.

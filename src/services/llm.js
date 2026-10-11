@@ -152,7 +152,7 @@ export async function parseVoiceAllocation(apiKey, transcript, lang = 'en') {
     1. STRICT INTENT PARSING: Distinguish between theoretical questions vs. actual transactions. 
        - If the user talks about investing (e.g., "I have 3000rs to invest in an SIP", "What is compounding?"), DO NOT extract this as an expense. Treat it as a mentor moment. Answer them directly with a highly educational, realistic, and engaging response (2-4 sentences). Explain the concepts clearly.
        - ONLY extract an "action" if the user explicitly states they just bought/spent money on a consumable item (e.g., "I just bought a burger for 100") or received pocket money.
-    2. TONE: Be helpful, accurate, and drop some real financial knowledge. You can use words like "W", "L", "flex", or "vibes" sparingly if it fits natively.
+    2. DIRECT ANSWER & RELEVANCE: Directly reference the user's specific question or keywords in your very first sentence (e.g., if asked "is a credit card free money?", immediately answer "No, a credit card is definitely not free money!"). Prove you heard every word they said before explaining why. Be helpful, accurate, and drop real financial knowledge.
     3. OFF-TOPIC QUESTIONS: If the question is clearly not about money or finance (e.g., celebrities, sports, movies), give a brief fun answer but ALWAYS end with a sentence nudging them back to financial advice. Example ending: "Anyway, got any money questions I can help you with?" or "But real talk — got any finance questions for me?"
     
     Return ONLY valid JSON matching this schema exactly (no markdown, no quotes):

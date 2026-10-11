@@ -14,8 +14,9 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
   const isListeningRef = useRef(false);
   const isProcessingRef = useRef(false);
   const langRef = useRef(lang);
+  const isHeldRef = useRef(false);
   const currentTranscriptRef = useRef('');
-  const silenceTimerRef = useRef(null);
+  const [lastHeard, setLastHeard] = useState('');
 
   useEffect(() => {
     langRef.current = lang;
@@ -37,11 +38,9 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
       recognition.onstart = () => {
         isListeningRef.current = true;
         setIsListening(true);
-        currentTranscriptRef.current = '';
       };
 
       recognition.onresult = (event) => {
-        clearTimeout(silenceTimerRef.current);
         let full = '';
         for (let i = 0; i < event.results.length; ++i) {
           full += event.results[i][0].transcript + ' ';
@@ -49,29 +48,28 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
         const trimmed = full.trim();
         currentTranscriptRef.current = trimmed;
         setMessage(trimmed ? `"${trimmed}"` : "Listening...");
-
-        // If user pauses for 1.8s while mic is active, auto-submit
-        silenceTimerRef.current = setTimeout(() => {
-          if (currentTranscriptRef.current && !isProcessingRef.current) {
-            try { recognition.stop(); } catch(e) {}
-          }
-        }, 1800);
       };
 
       recognition.onerror = () => {
-        clearTimeout(silenceTimerRef.current);
-        isListeningRef.current = false;
-        setIsListening(false);
+        if (!isHeldRef.current) {
+          isListeningRef.current = false;
+          setIsListening(false);
+        }
       };
 
       recognition.onend = () => {
-        clearTimeout(silenceTimerRef.current);
+        // If user is STILL holding the spacebar or mouse, keep listening!
+        if (isHeldRef.current) {
+          try { recognition.start(); } catch(e) {}
+          return;
+        }
         isListeningRef.current = false;
         setIsListening(false);
         const textToProcess = currentTranscriptRef.current.trim();
         currentTranscriptRef.current = '';
         if (textToProcess && !isProcessingRef.current) {
           isProcessingRef.current = true;
+          setLastHeard(textToProcess);
           processInput(textToProcess);
         } else {
           isProcessingRef.current = false;
@@ -87,9 +85,9 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
 
       if (e.code === 'Space') {
         e.preventDefault();
-        if (!e.repeat && !isListeningRef.current && !isProcessingRef.current) {
+        if (!e.repeat && !isHeldRef.current && !isProcessingRef.current) {
+          isHeldRef.current = true;
           window.speechSynthesis.cancel();
-          clearTimeout(silenceTimerRef.current);
           currentTranscriptRef.current = '';
           try {
             if (recognitionRef.current) {
@@ -112,13 +110,13 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
 
     const handleKeyUp = (e) => {
       if (['INPUT', 'TEXTAREA'].includes(e.target?.tagName)) return;
-      if (e.code === 'Space') {
+      if (e.code === 'Space' && isHeldRef.current) {
         e.preventDefault();
-        clearTimeout(silenceTimerRef.current);
+        isHeldRef.current = false;
         // Small delay to capture the final word spoken right as space was released
         setTimeout(() => {
           try { recognitionRef.current?.stop(); } catch(err) {}
-        }, 250);
+        }, 300);
       }
     };
 
@@ -126,7 +124,7 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
     window.addEventListener('keyup', handleKeyUp);
     
     return () => {
-      clearTimeout(silenceTimerRef.current);
+      isHeldRef.current = false;
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.speechSynthesis.cancel();
@@ -202,8 +200,8 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
 
   // For users who use screen readers but still want to click
   const handleMousePress = () => {
+    isHeldRef.current = true;
     window.speechSynthesis.cancel();
-    clearTimeout(silenceTimerRef.current);
     currentTranscriptRef.current = '';
     if (recognitionRef.current) {
       const curLang = langRef.current || lang;
@@ -213,10 +211,12 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
   };
 
   const handleMouseRelease = () => {
-    clearTimeout(silenceTimerRef.current);
-    setTimeout(() => {
-      try { recognitionRef.current?.stop(); } catch(err) {}
-    }, 250);
+    if (isHeldRef.current) {
+      isHeldRef.current = false;
+      setTimeout(() => {
+        try { recognitionRef.current?.stop(); } catch(err) {}
+      }, 300);
+    }
   };
 
   const handleSaveKey = (e) => {
@@ -231,7 +231,7 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center p-8 text-center">
+    <div className="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center p-8 text-center overflow-y-auto">
       
       {/* Top Bar: API Key status / button + Exit Button */}
       <div className="absolute top-6 inset-x-8 flex items-center justify-between z-20">
@@ -293,7 +293,13 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
         )}
       </button>
 
-      <h1 className="text-yellow-400 text-4xl md:text-5xl font-black mt-16 max-w-5xl leading-relaxed tracking-wide" aria-live="polite">
+      {lastHeard && (
+        <div className="mt-8 bg-emerald-500/20 border-2 border-emerald-400 text-emerald-300 font-bold text-xl md:text-2xl px-6 py-2.5 rounded-2xl max-w-4xl shadow-lg">
+          🎤 You said: &ldquo;{lastHeard}&rdquo;
+        </div>
+      )}
+
+      <h1 className="text-yellow-400 text-3xl md:text-5xl font-black mt-6 max-w-5xl leading-relaxed tracking-wide" aria-live="polite">
         {message}
       </h1>
 

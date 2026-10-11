@@ -13,6 +13,14 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
   const recognitionRef = useRef(null);
   const isListeningRef = useRef(false);
   const isProcessingRef = useRef(false);
+  const langRef = useRef(lang);
+
+  useEffect(() => {
+    langRef.current = lang;
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = lang === 'hi' ? 'hi-IN' : lang === 'te' ? 'te-IN' : 'en-IN';
+    }
+  }, [lang]);
 
   useEffect(() => {
     speak(message);
@@ -22,6 +30,7 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
+      recognition.lang = lang === 'hi' ? 'hi-IN' : lang === 'te' ? 'te-IN' : 'en-IN';
       
       recognition.onstart = () => {
         isListeningRef.current = true;
@@ -57,7 +66,13 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
         e.preventDefault();
         if (!e.repeat && !isListeningRef.current && !isProcessingRef.current) {
           window.speechSynthesis.cancel();
-          try { recognitionRef.current?.start(); } catch(err) {}
+          try {
+            if (recognitionRef.current) {
+              const curLang = langRef.current || lang;
+              recognitionRef.current.lang = curLang === 'hi' ? 'hi-IN' : curLang === 'te' ? 'te-IN' : 'en-IN';
+            }
+            recognitionRef.current?.start();
+          } catch(err) {}
         }
       }
       if (e.code === 'KeyR' && !e.repeat) {
@@ -95,6 +110,8 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
+      const curLang = langRef.current || lang;
+      utterance.lang = curLang === 'hi' ? 'hi-IN' : curLang === 'te' ? 'te-IN' : 'en-IN';
       window.speechSynthesis.speak(utterance);
     }, 150);
   };
@@ -115,7 +132,7 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
     let offline = false;
 
     try {
-      result = await parseVoiceAllocation(apiKey, transcript, lang);
+      result = await parseVoiceAllocation(apiKey, transcript, langRef.current || lang);
     } catch (err) {
       console.warn("Gemini voice error, falling back:", err);
       offline = true;
@@ -156,6 +173,10 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
   // For users who use screen readers but still want to click
   const handleMousePress = () => {
     window.speechSynthesis.cancel();
+    if (recognitionRef.current) {
+      const curLang = langRef.current || lang;
+      recognitionRef.current.lang = curLang === 'hi' ? 'hi-IN' : curLang === 'te' ? 'te-IN' : 'en-IN';
+    }
     recognitionRef.current?.start();
   };
 

@@ -46,6 +46,14 @@ export default function VoiceCompanion({ apiKey, onSetKey, lang = 'en', t, onCom
   const mutedRef = useRef(isMuted);
   mutedRef.current = isMuted;
   const logEndRef = useRef(null);
+  const langRef = useRef(lang);
+
+  useEffect(() => {
+    langRef.current = lang;
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = lang === 'hi' ? 'hi-IN' : lang === 'te' ? 'te-IN' : 'en-IN';
+    }
+  }, [lang]);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -54,6 +62,7 @@ export default function VoiceCompanion({ apiKey, onSetKey, lang = 'en', t, onCom
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = true;
+    recognition.lang = lang === 'hi' ? 'hi-IN' : lang === 'te' ? 'te-IN' : 'en-IN';
 
     recognition.onstart = () => {
       setError(null);
@@ -105,6 +114,8 @@ export default function VoiceCompanion({ apiKey, onSetKey, lang = 'en', t, onCom
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.0;
     utterance.pitch = 1.1;
+    const curLang = langRef.current || lang;
+    utterance.lang = curLang === 'hi' ? 'hi-IN' : curLang === 'te' ? 'te-IN' : 'en-IN';
     utterance.onstart = () => setSpeaking(true);
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
@@ -119,6 +130,10 @@ export default function VoiceCompanion({ apiKey, onSetKey, lang = 'en', t, onCom
       setTranscript('');
       setError(null);
       try {
+        if (recognitionRef.current) {
+          const curLang = langRef.current || lang;
+          recognitionRef.current.lang = curLang === 'hi' ? 'hi-IN' : curLang === 'te' ? 'te-IN' : 'en-IN';
+        }
         recognitionRef.current?.start();
       } catch {
         setError('mic');
@@ -155,7 +170,7 @@ export default function VoiceCompanion({ apiKey, onSetKey, lang = 'en', t, onCom
     }
 
     try {
-      result = await parseVoiceAllocation(apiKey, text, lang);
+      result = await parseVoiceAllocation(apiKey, text, langRef.current || lang);
     } catch (err) {
       console.error("Gemini parse error:", err);
       result = { failed: true };

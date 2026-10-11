@@ -88,7 +88,7 @@ export default function LifeReport({ gs, onNewRun, onLearn, onHome }) {
         </Card>
         <Card>
           <h3 className="flex items-center gap-2 font-black text-slate-800"><Trophy size={18} aria-hidden="true" /> Earned this run</h3>
-          <p className="mt-1 text-sm text-slate-600">+{r.xpGained} XP · Level {r.level.level} {r.level.title}</p>
+          <p className="mt-1 text-sm text-slate-600">+{r.xpGained} Aura Points · Level {r.level.level} {r.level.title}</p>
           {r.badges.length ? (
             <ul className="mt-3 grid grid-cols-2 gap-2">
               {r.badges.map((b) => <li key={b.id} className="rounded-2xl border border-slate-200 p-3 text-sm"><span className="text-2xl" aria-hidden="true">{b.emoji}</span><p className="font-bold text-slate-800">{b.name}</p><p className="text-xs text-slate-500">{b.rule}</p></li>)}

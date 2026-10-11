@@ -112,7 +112,7 @@ export function loadGame(store = defaultStore()) {
   if (data.run === null || data.run === undefined) return { state: { profile, run: null }, notice: null };
   const problems = validateRun(data.run);
   if (problems.length) {
-    return { state: { profile, run: null }, notice: 'Your last run couldn’t be restored safely, so it was cleared. Your XP and badges are kept.' };
+    return { state: { profile, run: null }, notice: 'Your last run couldn’t be restored safely, so it was cleared. Your Aura Points and badges are kept.' };
   }
   return { state: { profile, run: data.run }, notice: null };
 }
@@ -132,7 +132,7 @@ export function saveGame(state, store = defaultStore()) {
   }
 }
 
-/** Erase everything, including XP and badges. @param {KV | null} [store] */
+/** Erase everything, including Aura Points and badges. @param {KV | null} [store] */
 export function clearSave(store = defaultStore()) {
   try {
     store?.removeItem(STORAGE_KEY);

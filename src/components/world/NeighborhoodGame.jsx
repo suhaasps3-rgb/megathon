@@ -1,11 +1,22 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '../../i18n/context';
+import { fill } from '../../data/translations';
+import { ArrowLeft, Pause, Play, LogOut, RotateCcw } from 'lucide-react';
 import World from './World.jsx';
+import ResultsPanel from './ResultsPanel.jsx';
+import {
+  acceptMission, completeMission, depositToReserve, repayDebt, takeShift, viewSipSimulation, missionStateOf, TEMPLATES, SHIFT_PAY,
+} from '../../neighborhood/missions.js';
+import { analyseRun } from '../../neighborhood/analysis.js';
+import {
+  DEFAULT_PITCH, DEFAULT_CONTROLS, loadControls, saveControls, applyLook, stickVector,
+} from '../../neighborhood/controls.js';
 import { POIS } from '../../neighborhood/layout.js';
+import { SHOPS, buyItem } from '../../neighborhood/shops.js';
 import {
   BIKE_PRICE, SAVE_AMOUNT, REPAIR_COST, CHAI_PRICE, DELIVERY_PAY,
   payDelivery, buyBikeNow, saveInsteadOfBike, payRepair, projectSavings, loadWallet, saveWallet,
-  LOAN_RATE_YEARLY,
+  startNewRun, restartJourney, LOAN_RATE_YEARLY,
 } from '../../neighborhood/economy.js';
 
 const GAME_KEYS = new Set([
@@ -26,7 +37,21 @@ const inr = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
  * What the player can do at each place right now. Each option names its consequence before
  * the player picks it, and its `run` is one of the pure rules in economy.js.
  */
-function dialogFor(id, w) {
+function shopDialogFor(shop, w) {
+  return {
+    speaker: `${shop.name} · Groceries`,
+    lines: [shop.greeting],
+    options: shop.items.map((item) => ({
+      label: `Buy ${item.label}: ${inr(item.price)}`,
+      hint: w.cash >= item.price ? `Cash left ${inr(w.cash - item.price)}` : `You need ${inr(item.price)} in cash`,
+      run: (x) => buyItem(x, shop.id, item.id),
+      disabled: w.cash < item.price,
+    })),
+  };
+}
+
+function baseDialogFor(id, w) {
+  if (id === 'store') return shopDialogFor(SHOPS.grocery, w);
   if (id === 'ravi') {
     if (w.step !== 'deliver') {
       return { speaker: 'Ravi · Gully Market', lines: ['Thanks for the help, yaar. Check out the Cycle Mart next.'], options: [] };
@@ -98,21 +123,100 @@ function dialogFor(id, w) {
   };
 }
 
+/** Extra choices that a side mission adds at a place. They use the same pure rules as the rest. */
+function missionOptionsFor(id, w) {
+  const active = w.mission?.active;
+  if (!active) return [];
+  if (id === 'ravi' && active.templateId === 'earn-shift') {
+    return [{
+      label: `Take the second shift (+${inr(SHIFT_PAY)})`,
+      hint: 'Paid straight into cash. Completes the mission.',
+      run: takeShift,
+    }];
+  }
+  if (id === 'bank' && active.templateId === 'repay-debt') {
+    const pay = Math.min(w.cash, w.debt);
+    return [{
+      label: `Repay ${inr(pay)} of your debt`,
+      hint: `Debt goes from ${inr(w.debt)} to ${inr(w.debt - pay)}. Completes the mission.`,
+      run: repayDebt,
+      disabled: pay <= 0,
+    }];
+  }
+  if (id === 'bank' && active.templateId === 'sip-simulation') {
+    return [{
+      label: 'See the SIP simulation',
+      hint: 'Simulated only. No money moves. Completes the mission.',
+      run: viewSipSimulation,
+    }];
+  }
+  if (id === 'bank' && active.templateId === 'build-reserve') {
+    return [{
+      label: `Deposit ${inr(REPAIR_COST)} into savings`,
+      hint: w.cash >= REPAIR_COST ? `Cash left ${inr(w.cash - REPAIR_COST)}. Completes the mission.` : `You need ${inr(REPAIR_COST)} in cash`,
+      run: depositToReserve,
+      disabled: w.cash < REPAIR_COST,
+    }];
+  }
+  if (id === 'store' && active.templateId === 'skip-want') {
+    return [{
+      label: 'Walk past the headphones',
+      hint: 'Keep the cash. Completes the mission.',
+      run: (x) => completeMission(x, 'skip-want'),
+    }];
+  }
+  if (id === 'chai' && active.templateId === 'cost-check') {
+    return [{
+      label: 'Compare a daily chai with saving it',
+      hint: `Chai every day is ${inr(CHAI_PRICE * 365)} a year. Completes the mission.`,
+      run: (x) => completeMission(x, 'cost-check'),
+    }];
+  }
+  if (id === 'cycle' && active.templateId === 'compare-prices') {
+    return [{
+      label: 'Compare the bike with three months of bus fare',
+      hint: 'Assuming ₹30 a day, three months of fare is about ₹2,700, more than the ₹2,400 bike. Completes the mission.',
+      run: (x) => completeMission(x, 'compare-prices'),
+    }];
+  }
+  return [];
+}
+
+function dialogFor(id, w) {
+  const d = baseDialogFor(id, w);
+  const extra = missionOptionsFor(id, w);
+  return extra.length ? { ...d, options: [...d.options, ...extra] } : d;
+}
+
 export default function NeighborhoodGame({ onExit }) {
+  const T = useT();
   const [wallet, setWallet] = useState(() => loadWallet());
   const [nearby, setNearby] = useState(null);
   const [dialog, setDialog] = useState(null); // place id while talking
   const [toast, setToast] = useState(null);
-  const keys = useRef(new Set());
+  // One shared input object: the scene reads it every frame, and every control writes to it.
+  const input = useRef({ keys: new Set(), stick: { x: 0, y: 0 }, look: { yaw: 0, pitch: DEFAULT_PITCH } });
+  const [controls, setControls] = useState(() => loadControls());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const controlsRef = useRef(controls);
+  controlsRef.current = controls;
+  const lookDrag = useRef(null);
   const nearbyRef = useRef(null);
   const dialogRef = useRef(null);
+  const resultsRef = useRef(false);
+  const menuRef = useRef(false);
   nearbyRef.current = nearby;
   dialogRef.current = dialog;
+  menuRef.current = menuOpen;
 
   // Save every change. If the browser refuses storage, the game still works for this visit.
   useEffect(() => {
     if (!saveWallet(wallet)) setToast('Progress can’t be saved in this browser, so it will reset when you leave.');
   }, [wallet]);
+
+  useEffect(() => {
+    saveControls(controls);
+  }, [controls]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -122,22 +226,30 @@ export default function NeighborhoodGame({ onExit }) {
 
   useEffect(() => {
     const down = (e) => {
+      // Typing in a field (for example a future chat box) must never move the character.
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return;
       if (e.code === 'KeyE') {
         e.preventDefault();
-        if (!e.repeat && nearbyRef.current && !dialogRef.current) setDialog(nearbyRef.current);
+        if (!e.repeat && nearbyRef.current && !dialogRef.current && !resultsRef.current && !menuRef.current) setDialog(nearbyRef.current);
         return;
       }
       if (e.code === 'Escape') {
-        setDialog(null);
+        // Esc closes a conversation first, then toggles the pause menu. It never fires behind the results.
+        if (dialogRef.current) setDialog(null);
+        else if (!resultsRef.current) setMenuOpen((m) => !m);
         return;
       }
       if (GAME_KEYS.has(e.code)) {
         e.preventDefault();
-        keys.current.add(e.code);
+        input.current.keys.add(e.code);
       }
     };
-    const up = (e) => keys.current.delete(e.code);
-    const clear = () => keys.current.clear();
+    const up = (e) => input.current.keys.delete(e.code);
+    const clear = () => {
+      input.current.keys.clear();
+      input.current.stick = { x: 0, y: 0 };
+    };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
     window.addEventListener('blur', clear);
@@ -151,12 +263,56 @@ export default function NeighborhoodGame({ onExit }) {
   const press = (code) => ({
     onPointerDown: (e) => {
       e.preventDefault();
-      keys.current.add(code);
+      input.current.keys.add(code);
     },
-    onPointerUp: () => keys.current.delete(code),
-    onPointerLeave: () => keys.current.delete(code),
-    onPointerCancel: () => keys.current.delete(code),
+    onPointerUp: () => input.current.keys.delete(code),
+    onPointerLeave: () => input.current.keys.delete(code),
+    onPointerCancel: () => input.current.keys.delete(code),
   });
+
+  // Drag on the scene to look around. Only drags that start on the canvas count, so buttons and
+  // panels laid over the scene never spin the camera.
+  const blocked = () => Boolean(dialogRef.current || menuRef.current || resultsRef.current);
+  const onLookDown = (e) => {
+    if (e.target.tagName !== 'CANVAS' || blocked()) return;
+    lookDrag.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const onLookMove = (e) => {
+    const g = lookDrag.current;
+    if (!g || g.id !== e.pointerId) return;
+    const dx = e.clientX - g.x;
+    const dy = e.clientY - g.y;
+    g.x = e.clientX;
+    g.y = e.clientY;
+    input.current.look = applyLook(input.current.look, dx, dy, controlsRef.current);
+  };
+  const onLookUp = (e) => {
+    if (lookDrag.current?.id === e.pointerId) lookDrag.current = null;
+  };
+
+  // The results panel opens once per finished run. Closing it is saved, so a refresh does not replay it.
+  const showResults = wallet.step === 'done' && !wallet.resultsSeen;
+  const analysis = useMemo(() => (showResults ? analyseRun(wallet) : null), [showResults, wallet]);
+  resultsRef.current = Boolean(analysis);
+
+  const closeResults = () => setWallet((w) => ({ ...w, resultsSeen: true }));
+  const getMission = () => {
+    const r = acceptMission(wallet);
+    if (r.ok) setWallet(r.state);
+    setToast(r.message);
+  };
+  const resume = () => setMenuOpen(false);
+  const replay = () => setWallet((w) => startNewRun(w));
+  // A full restart also puts the player back at the start, so the world is remounted.
+  const [worldKey, setWorldKey] = useState(0);
+  const restart = () => {
+    setWallet(restartJourney());
+    setNearby(null);
+    setDialog(null);
+    setMenuOpen(false);
+    setWorldKey((k) => k + 1);
+  };
 
   const choose = (option) => {
     const res = option.run(wallet);
@@ -171,19 +327,37 @@ export default function NeighborhoodGame({ onExit }) {
 
   return (
     <div className="mx-auto max-w-6xl px-3 pb-12 pt-4 md:px-6">
-      <div className="relative h-[72vh] min-h-[480px] w-full overflow-hidden rounded-3xl border-4 border-white bg-sky-200 shadow-2xl">
-        <World keys={keys} paused={dialog !== null} onNearby={setNearby} />
+      <div
+        className="relative h-[72vh] min-h-[480px] w-full touch-none overflow-hidden rounded-3xl border-4 border-white bg-sky-200 shadow-2xl"
+        onPointerDown={onLookDown}
+        onPointerMove={onLookMove}
+        onPointerUp={onLookUp}
+        onPointerCancel={onLookUp}
+      >
+        <World key={worldKey} inputRef={input} paused={dialog !== null || Boolean(analysis) || menuOpen} onNearby={setNearby} />
 
         <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <div className="pointer-events-auto max-w-xs rounded-2xl bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              <Stat label="Cash" value={inr(wallet.cash)} />
-              <Stat label="Savings" value={inr(wallet.savings)} />
-              {wallet.debt > 0 && <Stat label="Debt" value={inr(wallet.debt)} tone="text-rose-600" />}
-              <Stat label="Aura" value={wallet.aura} />
+              <Stat label={T.lmCash} value={inr(wallet.cash)} />
+              <Stat label={T.lmSavings} value={inr(wallet.savings)} />
+              {wallet.debt > 0 && <Stat label={T.lmDebt} value={inr(wallet.debt)} tone="text-rose-600" />}
+              <Stat label={T.lmAura} value={wallet.aura} />
             </div>
             <p className="mt-2 text-xs font-bold text-slate-700">{MISSION[wallet.step]}</p>
+            <MissionCard
+              mission={missionStateOf(wallet).active}
+              last={missionStateOf(wallet).results?.at(-1)}
+              onGet={getMission}
+            />
           </div>
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-xl bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow-lg backdrop-blur hover:bg-white"
+          >
+            <RotateCcw size={14} aria-hidden="true" /> {T.wRestart}
+          </button>
           <button
             type="button"
             onClick={onExit}
@@ -201,7 +375,7 @@ export default function NeighborhoodGame({ onExit }) {
 
         {!dialog && nearPlace && (
           <div role="status" className="absolute bottom-4 left-1/2 hidden -translate-x-1/2 rounded-full bg-white/95 px-4 py-2 text-sm font-black text-slate-800 shadow-lg md:block">
-            Press E to talk to {nearPlace.label}
+            {fill(T.wNearTalk, { name: nearPlace.label })}
           </div>
         )}
 
@@ -243,22 +417,27 @@ export default function NeighborhoodGame({ onExit }) {
           </div>
         )}
 
-        {!dialog && (
-          <div className="absolute bottom-3 left-3 flex flex-col items-start gap-2 md:hidden" aria-label="Touch controls">
-            <div className="grid grid-cols-3 gap-1 select-none touch-none">
-              <span />
-              <PadKey label="↑" {...press('KeyW')} />
-              <span />
-              <PadKey label="←" {...press('KeyA')} />
-              <PadKey label="↓" {...press('KeyS')} />
-              <PadKey label="→" {...press('KeyD')} />
-            </div>
+        {analysis && <ResultsPanel analysis={analysis} onExplore={closeResults} onReplay={replay} />}
+
+        {menuOpen && !analysis && (
+          <PauseMenu
+            controls={controls}
+            onChange={setControls}
+            onResume={resume}
+            onExit={onExit}
+            onRestart={restart}
+          />
+        )}
+
+        {!dialog && !analysis && !menuOpen && (
+          <div className="absolute bottom-3 left-3 md:hidden">
+            <Stick inputRef={input} />
           </div>
         )}
 
-        {!dialog && (
+        {!dialog && !analysis && !menuOpen && (
           <div className="absolute bottom-3 right-3 flex flex-col gap-2 md:hidden">
-            <button type="button" {...press('Space')} className="touch-none select-none rounded-full bg-white/90 px-5 py-3 text-sm font-black shadow-lg">Jump</button>
+            <button type="button" {...press('Space')} className="touch-none select-none rounded-full bg-white/90 px-5 py-3 text-sm font-black shadow-lg">{T.wJump}</button>
             {nearPlace && (
               <button
                 type="button"
@@ -273,13 +452,40 @@ export default function NeighborhoodGame({ onExit }) {
       </div>
 
       <p className="mt-3 text-center text-xs font-bold text-slate-600">
-        Move with WASD or arrow keys · Shift to run · Space to jump · E to talk · Esc to close
+        Move with WASD or arrows · Drag to look · Shift to run · Space to jump · E to talk · Esc to pause
       </p>
     </div>
   );
 }
 
+/** Side mission board: shows the one active side mission, or offers a new one. */
+function MissionCard({ mission, last, onGet }) {
+  const T = useT();
+  if (!mission) {
+    return (
+      <div className="mt-2 border-t border-slate-200 pt-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-bold text-slate-600">{T.wNoSide}</span>
+          <button type="button" onClick={onGet} className="rounded-lg bg-purple-600 px-2 py-1 text-xs font-black text-white">{T.wGetOne}</button>
+        </div>
+        {last && <p className="mt-1 text-[11px] text-slate-600">Last: {last.title}. Cash {inr(last.before.cash)} → {inr(last.after.cash)}.</p>}
+      </div>
+    );
+  }
+  const place = POIS.find((p) => p.id === TEMPLATES[mission.templateId]?.where);
+  return (
+    <div className="mt-2 border-t border-slate-200 pt-2">
+      <p className="text-[10px] font-black uppercase tracking-wider text-purple-700">
+        {mission.category} · {mission.difficulty} · about {mission.minutes} min · +{mission.reward} Aura
+      </p>
+      <p className="text-xs font-black text-slate-900">{mission.title}</p>
+      <p className="text-xs text-slate-700">{mission.objective}{place ? ` Go to ${place.label}.` : ''}</p>
+    </div>
+  );
+}
+
 function Stat({ label, value, tone = 'text-slate-900' }) {
+  const T = useT();
   return (
     <div>
       <span className="block text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</span>
@@ -288,10 +494,129 @@ function Stat({ label, value, tone = 'text-slate-900' }) {
   );
 }
 
-function PadKey({ label, ...handlers }) {
+/** Virtual joystick for touch screens. It reports a vector, so diagonals and partial tilt work. */
+function Stick({ inputRef }) {
+  const T = useT();
+  const base = useRef(null);
+  const [knob, setKnob] = useState({ x: 0, y: 0 });
+  const move = (e) => {
+    if (!e.currentTarget.hasPointerCapture?.(e.pointerId)) return;
+    const r = base.current.getBoundingClientRect();
+    const radius = r.width / 2;
+    const v = stickVector(e.clientX - (r.left + radius), e.clientY - (r.top + radius), radius);
+    inputRef.current.stick = v;
+    setKnob({ x: v.x * radius * 0.6, y: v.y * radius * 0.6 });
+  };
+  const release = (e) => {
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    inputRef.current.stick = { x: 0, y: 0 };
+    setKnob({ x: 0, y: 0 });
+  };
   return (
-    <button type="button" {...handlers} aria-label={`Move ${label}`} className="touch-none select-none rounded-xl bg-white/90 px-4 py-3 text-lg font-black shadow-lg">
-      {label}
-    </button>
+    <div
+      ref={base}
+      role="img"
+      aria-label={T.wStick}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        move(e);
+      }}
+      onPointerMove={move}
+      onPointerUp={release}
+      onPointerCancel={release}
+      className="relative h-36 w-36 touch-none select-none rounded-full border-2 border-white/80 bg-white/40 shadow-lg backdrop-blur"
+    >
+      <span
+        className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-xl"
+        style={{ transform: `translate(calc(-50% + ${knob.x}px), calc(-50% + ${knob.y}px))` }}
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
+const CONTROL_GUIDE = [
+  ['Move', 'WASD or arrow keys, or the joystick on touch'],
+  ['Look around', 'Drag on the scene'],
+  ['Run', 'Hold Shift'],
+  ['Jump', 'Space, or the Jump button'],
+  ['Talk', 'Stand near someone and press E, or the Talk button'],
+  ['Pause', 'Esc'],
+];
+
+/** Pause menu: resume, adjust look settings, see the controls, or leave the neighbourhood. */
+function PauseMenu({ controls, onChange, onResume, onExit, onRestart }) {
+  const T = useT();
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <div
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="pause-title"
+      className="absolute inset-3 z-10 flex flex-col gap-4 overflow-y-auto rounded-3xl bg-white/95 p-5 shadow-2xl backdrop-blur md:inset-x-auto md:left-1/2 md:top-6 md:w-[30rem] md:-translate-x-1/2"
+    >
+      <h2 id="pause-title" className="text-2xl font-black text-ink-900">{T.wPaused}</h2>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={onResume} className="btn-primary"><Play size={16} aria-hidden="true" /> {T.wResume}</button>
+        <button type="button" onClick={onExit} className="btn-secondary"><LogOut size={16} aria-hidden="true" /> {T.lmBack}</button>
+      </div>
+
+      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+        <p className="text-sm font-bold text-rose-900">{T.wRestartTitle}</p>
+        <p className="mt-1 text-sm text-rose-900/80">{T.wRestartNote}</p>
+        {confirming ? (
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={T.wRestartTitle}>
+            <button type="button" onClick={onRestart} className="btn-primary bg-rose-600 hover:bg-rose-700"><RotateCcw size={16} aria-hidden="true" /> {T.wYesRestart}</button>
+            <button type="button" onClick={() => setConfirming(false)} className="btn-secondary">{T.wKeep}</button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirming(true)} className="btn-secondary mt-3"><RotateCcw size={16} aria-hidden="true" /> {T.wRestartTitle}</button>
+        )}
+      </div>
+
+      <fieldset className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+        <legend className="px-1 text-sm font-black text-ink-900">{T.wLook}</legend>
+        <label className="flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
+          {T.wSens}
+          <input
+            type="range"
+            min="0.5"
+            max="2"
+            step="0.1"
+            value={controls.sensitivity}
+            onChange={(e) => onChange({ ...controls, sensitivity: Number(e.target.value) })}
+            className="w-40 accent-purple-600"
+          />
+          <span className="w-10 text-right tabular-nums">{controls.sensitivity.toFixed(1)}×</span>
+        </label>
+        <label className="flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
+          {T.wInvert}
+          <input
+            type="checkbox"
+            checked={controls.invertY}
+            onChange={(e) => onChange({ ...controls, invertY: e.target.checked })}
+            className="h-5 w-5 accent-purple-600"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => onChange({ ...DEFAULT_CONTROLS })}
+          className="justify-self-start text-xs font-black text-purple-700 underline"
+        >
+          Reset to defaults
+        </button>
+      </fieldset>
+
+      <dl className="grid gap-2 text-sm">
+        {CONTROL_GUIDE.map(([action, how]) => (
+          <div key={action} className="flex gap-3 rounded-xl bg-slate-50 px-3 py-2">
+            <dt className="w-28 shrink-0 font-black text-slate-900">{action}</dt>
+            <dd className="text-slate-700">{how}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="flex items-center gap-2 text-xs text-slate-500"><Pause size={12} aria-hidden="true" /> {T.wPausedNote}</p>
+    </div>
   );
 }

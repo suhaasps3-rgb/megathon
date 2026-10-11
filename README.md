@@ -8,8 +8,8 @@
 ## Setup
 
 ```bash
-git clone https://github.com/suhaasps3-rgb/megathon.git
-cd megathon
+git clone https://github.com/IIIT-ECell/megathon26-cache-me-if-you-can.git
+cd megathon26-cache-me-if-you-can
 npm install
 ```
 

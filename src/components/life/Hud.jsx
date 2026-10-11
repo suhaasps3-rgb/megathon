@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useT } from '../../i18n/context';
+import { fill } from '../../data/translations';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Wallet, PiggyBank, Target, Coins, Heart, History, X, Sparkles } from 'lucide-react';
 import { balancesOf, totalAssets } from '../../lifemode/domain/ledger.js';
@@ -10,6 +12,7 @@ import Room from './Room.jsx';
 import { btn, focusRing, Money } from './ui.jsx';
 
 function Tile({ icon: Icon, label, value, tone, hint }) {
+  const T = useT();
   const reduce = useReducedMotion();
   return (
     <div className={`rounded-2xl border p-3 ${tone}`}>
@@ -33,6 +36,7 @@ function Tile({ icon: Icon, label, value, tone, hint }) {
 }
 
 export default function Hud({ gs }) {
+  const T = useT();
   const run = gs.run;
   const [showLedger, setShowLedger] = useState(false);
   if (!run) return null;
@@ -43,7 +47,7 @@ export default function Hud({ gs }) {
   const prog = runProgress(run);
 
   return (
-    <aside aria-label="Your life at a glance" className="space-y-4">
+    <aside aria-label={T.lmGlance} className="space-y-4">
       <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm">
         <Room
           avatar={run.character.avatar}
@@ -62,7 +66,7 @@ export default function Hud({ gs }) {
             <p className="text-xs font-bold text-purple-700">Level {lvl.level} · {lvl.title}</p>
           </div>
           <div className="w-36" aria-label={`${lvl.into} of ${lvl.needed} Aura Points to next level`} role="img">
-            <div className="flex justify-between text-[11px] font-bold text-slate-500"><span>Aura Points</span><span>{gs.profile.xp}</span></div>
+            <div className="flex justify-between text-[11px] font-bold text-slate-500"><span>{T.lmAura}</span><span>{gs.profile.xp}</span></div>
             <div className="mt-1 h-2 rounded-full bg-slate-100">
               <div className="h-2 rounded-full bg-purple-500 transition-all" style={{ width: `${(lvl.into / lvl.needed) * 100}%` }} />
             </div>
@@ -71,12 +75,12 @@ export default function Hud({ gs }) {
       </div>
 
       <div className="grid grid-cols-2 gap-2" aria-live="off">
-        <Tile icon={Wallet} label="Cash" value={b.cash} tone="border-slate-200 bg-white text-slate-800" hint="Free to spend" />
-        <Tile icon={PiggyBank} label="Savings" value={b.savings} tone="border-teal-200 bg-teal-50 text-teal-900" hint="Emergency fund" />
-        <Tile icon={Target} label="Goal fund" value={b.goal} tone="border-purple-200 bg-purple-50 text-purple-900" hint={goal ? `of ${formatINR(goal.cost)}` : 'No goal yet'} />
+        <Tile icon={Wallet} label={T.lmCash} value={b.cash} tone="border-slate-200 bg-white text-slate-800" hint={T.lmFreeSpend} />
+        <Tile icon={PiggyBank} label={T.lmSavings} value={b.savings} tone="border-teal-200 bg-teal-50 text-teal-900" hint={T.lmEmergency} />
+        <Tile icon={Target} label={T.lmGoalFund} value={b.goal} tone="border-purple-200 bg-purple-50 text-purple-900" hint={goal ? fill(T.lmOf, { amount: formatINR(goal.cost) }) : T.lmNoGoal} />
         {b.debt > 0
-          ? <Tile icon={Coins} label="You owe" value={b.debt} tone="border-amber-300 bg-amber-50 text-amber-900" hint="Family loan, no interest" />
-          : <Tile icon={Sparkles} label="Total owned" value={totalAssets(b)} tone="border-slate-200 bg-slate-50 text-slate-800" hint="Cash + savings + goal" />}
+          ? <Tile icon={Coins} label={T.lmOwe} value={b.debt} tone="border-amber-300 bg-amber-50 text-amber-900" hint={T.lmFamilyLoan} />
+          : <Tile icon={Sparkles} label={T.lmTotal} value={totalAssets(b)} tone="border-slate-200 bg-slate-50 text-slate-800" hint={T.lmTotalHint} />}
       </div>
 
       {goal && (
@@ -84,7 +88,7 @@ export default function Hud({ gs }) {
           <div className="flex items-center justify-between text-sm font-bold text-slate-700">
             <span><span aria-hidden="true">{goal.emoji}</span> {goal.label}</span>
           </div>
-          <div className="mt-2 h-3 rounded-full bg-slate-100" role="progressbar" aria-valuenow={goalPct} aria-valuemin={0} aria-valuemax={100} aria-label="Goal progress">
+          <div className="mt-2 h-3 rounded-full bg-slate-100" role="progressbar" aria-valuenow={goalPct} aria-valuemin={0} aria-valuemax={100} aria-label={T.lmGoalProgress}>
             <motion.div className="h-3 rounded-full bg-gradient-to-r from-purple-500 to-teal-500" initial={false} animate={{ width: `${goalPct}%` }} />
           </div>
           <p className="mt-1 text-xs text-slate-500">{goalPct}% · goal progress counts only money in your goal fund</p>
@@ -93,14 +97,14 @@ export default function Hud({ gs }) {
 
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-3">
-          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500"><Heart size={14} aria-hidden="true" /> Wellbeing</div>
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500"><Heart size={14} aria-hidden="true" /> {T.lmWellbeing}</div>
           <div className="mt-1 flex items-center gap-2">
             <div className="h-2 flex-1 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-rose-400 transition-all" style={{ width: `${run.wellbeing}%` }} /></div>
             <span className="text-sm font-black tabular-nums text-slate-700">{run.wellbeing}</span>
           </div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-3">
-          <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Journey</div>
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-500">{T.lmJourney}</div>
           <ol className="mt-2 flex gap-1" aria-label={`Chapter progress: ${prog.done} of ${prog.total} complete`}>
             {CHAPTERS.map((c, i) => (
               <li key={c.n} title={c.title} className={`h-2 flex-1 rounded-full ${i < prog.done ? 'bg-teal-500' : i === run.chapterIndex ? 'bg-purple-400' : 'bg-slate-200'}`} />
@@ -140,6 +144,7 @@ export function TxRow({ tx }) {
 }
 
 function LedgerDialog({ txs, opening, onClose }) {
+  const T = useT();
   const ref = React.useRef(null);
   React.useEffect(() => {
     const prev = document.activeElement;
@@ -156,12 +161,12 @@ function LedgerDialog({ txs, opening, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-2 flex items-center justify-between">
-          <h2 id="ledger-title" className="text-lg font-black text-slate-800">Transaction history</h2>
-          <button type="button" onClick={onClose} className={`${btn.ghost} ${focusRing}`} aria-label="Close history"><X size={20} aria-hidden="true" /></button>
+          <h2 id="ledger-title" className="text-lg font-black text-slate-800">{T.lmHistory}</h2>
+          <button type="button" onClick={onClose} className={`${btn.ghost} ${focusRing}`} aria-label={T.lmCloseHistory}><X size={20} aria-hidden="true" /></button>
         </div>
-        <p className="text-sm text-slate-500">Started with <Money value={opening.cash} /> cash. Transfers (⇄) move your own money between accounts and don’t change your total.</p>
+        <p className="text-sm text-slate-500">{fill(T.lmHistNote, { cash: formatINR(opening.cash) })}</p>
         {txs.length === 0 ? (
-          <p className="mt-6 text-center text-sm text-slate-500">No transactions yet.</p>
+          <p className="mt-6 text-center text-sm text-slate-500">{T.lmNoTx}</p>
         ) : (
           <ol className="mt-3 divide-y divide-slate-100">
             {[...txs].reverse().map((t) => <TxRow key={t.id} tx={t} />)}

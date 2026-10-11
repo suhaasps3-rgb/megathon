@@ -4,12 +4,14 @@ import Home from './components/Home';
 import Onboarding from './components/Onboarding';
 import Assessment from './components/Assessment';
 import Game from './components/Game';
+import { LangContext } from './i18n/context';
 import Report from './components/Report';
 import NgoDashboard from './components/NgoDashboard';
 import VoiceCompanion from './components/VoiceCompanion';
 import BlindMode from './components/BlindMode';
 import AppHeader, { LEARN_STATES } from './components/shell/AppHeader';
 import JourneyBar from './components/shell/JourneyBar';
+import AppFooter from './components/shell/AppFooter';
 import Mascot from './components/brand/Mascot';
 import translations from './data/translations';
 const LifeMode = lazy(() => import('./components/life/LifeMode'));
@@ -88,14 +90,25 @@ function App() {
   }, [state]);
 
   if (isNgoMode) {
-    return <NgoDashboard t={t} onBack={() => setIsNgoMode(false)} />;
+    return (
+      <>
+        <NgoDashboard t={t} onBack={() => setIsNgoMode(false)} />
+        <AppFooter dark />
+      </>
+    );
   }
 
   if (state === 'BLIND_MODE') {
-    return <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => go('HOME')} />;
+    return (
+      <>
+        <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => go('HOME')} />
+        <AppFooter dark />
+      </>
+    );
   }
 
   return (
+    <LangContext.Provider value={t}>
     <MotionConfig reducedMotion="user">
       <div className="app-bg min-h-screen overflow-x-clip pb-16">
         <a href="#main" className="sr-only z-[60] rounded-xl bg-ink-900 px-4 py-3 font-bold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
@@ -139,8 +152,10 @@ function App() {
           )}
           {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => go('HOME')} />}
         </main>
+        <AppFooter />
       </div>
     </MotionConfig>
+    </LangContext.Provider>
   );
 }
 

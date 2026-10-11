@@ -1,3 +1,29 @@
+// Free-tier Gemini keys allow only a few requests per minute per model, and busy models
+// return 503. Each model has its own quota, so on a 429/503 we move to the next one.
+const GEMINI_MODELS = ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+const RETRYABLE = new Set([404, 429, 500, 503]);
+
+// Thinking models can return thought parts first; keep only the answer text.
+function answerText(data) {
+  return data.candidates[0].content.parts.filter((p) => !p.thought && p.text).map((p) => p.text).join('');
+}
+
+async function callGemini(apiKey, prompt) {
+  let lastResponse;
+  for (const model of GEMINI_MODELS) {
+    lastResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json' }
+      })
+    });
+    if (lastResponse.ok || !RETRYABLE.has(lastResponse.status)) break;
+  }
+  return lastResponse;
+}
+
 export async function generateDynamicScenario(apiKey, profile, assessmentLevel) {
   const prompt = `
     You are PaisaPath, an adaptive financial literacy engine designed for Grade 11-12 students (16-17 years old) in Hyderabad, India.
@@ -68,16 +94,7 @@ export async function generateDynamicScenario(apiKey, profile, assessmentLevel) 
     }
   `;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-      }
-    })
-  });
+  const response = await callGemini(apiKey, prompt);
 
   if (!response.ok) {
     throw new Error('Failed to generate scenario. Check API Key.');
@@ -85,7 +102,7 @@ export async function generateDynamicScenario(apiKey, profile, assessmentLevel) 
 
   const data = await response.json();
   try {
-    return JSON.parse(data.candidates[0].content.parts[0].text);
+    return JSON.parse(answerText(data));
   } catch (e) {
     throw new Error("Failed to parse LLM response");
   }
@@ -104,16 +121,7 @@ export async function assessUnderstanding(apiKey, userAnswer) {
     }
   `;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-      }
-    })
-  });
+  const response = await callGemini(apiKey, prompt);
 
   if (!response.ok) {
     throw new Error('Failed to assess understanding. Check API Key.');
@@ -121,7 +129,7 @@ export async function assessUnderstanding(apiKey, userAnswer) {
 
   const data = await response.json();
   try {
-    return JSON.parse(data.candidates[0].content.parts[0].text);
+    return JSON.parse(answerText(data));
   } catch (e) {
     throw new Error("Failed to parse LLM response");
   }
@@ -158,14 +166,7 @@ export async function parseVoiceAllocation(apiKey, transcript, lang = 'en') {
   `;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: 'application/json' }
-      })
-    });
+    const response = await callGemini(apiKey, prompt);
     
     if (!response.ok) {
       if (response.status === 429) {
@@ -180,7 +181,7 @@ export async function parseVoiceAllocation(apiKey, transcript, lang = 'en') {
       throw new Error("Invalid response structure from Gemini: " + JSON.stringify(data));
     }
     
-    let rawText = data.candidates[0].content.parts[0].text;
+    let rawText = answerText(data);
     rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
     
     return JSON.parse(rawText);

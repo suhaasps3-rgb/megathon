@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Pause, Play, LogOut } from 'lucide-react';
+import { useT } from '../../i18n/context';
+import { fill } from '../../data/translations';
+import { ArrowLeft, Pause, Play, LogOut, RotateCcw } from 'lucide-react';
 import World from './World.jsx';
 import ResultsPanel from './ResultsPanel.jsx';
 import {
@@ -14,7 +16,7 @@ import { SHOPS, buyItem } from '../../neighborhood/shops.js';
 import {
   BIKE_PRICE, SAVE_AMOUNT, REPAIR_COST, CHAI_PRICE, DELIVERY_PAY,
   payDelivery, buyBikeNow, saveInsteadOfBike, payRepair, projectSavings, loadWallet, saveWallet,
-  startNewRun, LOAN_RATE_YEARLY,
+  startNewRun, restartJourney, LOAN_RATE_YEARLY,
 } from '../../neighborhood/economy.js';
 
 const GAME_KEYS = new Set([
@@ -187,6 +189,7 @@ function dialogFor(id, w) {
 }
 
 export default function NeighborhoodGame({ onExit }) {
+  const T = useT();
   const [wallet, setWallet] = useState(() => loadWallet());
   const [nearby, setNearby] = useState(null);
   const [dialog, setDialog] = useState(null); // place id while talking
@@ -301,6 +304,15 @@ export default function NeighborhoodGame({ onExit }) {
   };
   const resume = () => setMenuOpen(false);
   const replay = () => setWallet((w) => startNewRun(w));
+  // A full restart also puts the player back at the start, so the world is remounted.
+  const [worldKey, setWorldKey] = useState(0);
+  const restart = () => {
+    setWallet(restartJourney());
+    setNearby(null);
+    setDialog(null);
+    setMenuOpen(false);
+    setWorldKey((k) => k + 1);
+  };
 
   const choose = (option) => {
     const res = option.run(wallet);
@@ -322,15 +334,15 @@ export default function NeighborhoodGame({ onExit }) {
         onPointerUp={onLookUp}
         onPointerCancel={onLookUp}
       >
-        <World inputRef={input} paused={dialog !== null || Boolean(analysis) || menuOpen} onNearby={setNearby} />
+        <World key={worldKey} inputRef={input} paused={dialog !== null || Boolean(analysis) || menuOpen} onNearby={setNearby} />
 
         <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <div className="pointer-events-auto max-w-xs rounded-2xl bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              <Stat label="Cash" value={inr(wallet.cash)} />
-              <Stat label="Savings" value={inr(wallet.savings)} />
-              {wallet.debt > 0 && <Stat label="Debt" value={inr(wallet.debt)} tone="text-rose-600" />}
-              <Stat label="Aura" value={wallet.aura} />
+              <Stat label={T.lmCash} value={inr(wallet.cash)} />
+              <Stat label={T.lmSavings} value={inr(wallet.savings)} />
+              {wallet.debt > 0 && <Stat label={T.lmDebt} value={inr(wallet.debt)} tone="text-rose-600" />}
+              <Stat label={T.lmAura} value={wallet.aura} />
             </div>
             <p className="mt-2 text-xs font-bold text-slate-700">{MISSION[wallet.step]}</p>
             <MissionCard
@@ -339,6 +351,13 @@ export default function NeighborhoodGame({ onExit }) {
               onGet={getMission}
             />
           </div>
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-xl bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow-lg backdrop-blur hover:bg-white"
+          >
+            <RotateCcw size={14} aria-hidden="true" /> {T.wRestart}
+          </button>
           <button
             type="button"
             onClick={onExit}
@@ -356,7 +375,7 @@ export default function NeighborhoodGame({ onExit }) {
 
         {!dialog && nearPlace && (
           <div role="status" className="absolute bottom-4 left-1/2 hidden -translate-x-1/2 rounded-full bg-white/95 px-4 py-2 text-sm font-black text-slate-800 shadow-lg md:block">
-            Press E to talk to {nearPlace.label}
+            {fill(T.wNearTalk, { name: nearPlace.label })}
           </div>
         )}
 
@@ -406,6 +425,7 @@ export default function NeighborhoodGame({ onExit }) {
             onChange={setControls}
             onResume={resume}
             onExit={onExit}
+            onRestart={restart}
           />
         )}
 
@@ -417,7 +437,7 @@ export default function NeighborhoodGame({ onExit }) {
 
         {!dialog && !analysis && !menuOpen && (
           <div className="absolute bottom-3 right-3 flex flex-col gap-2 md:hidden">
-            <button type="button" {...press('Space')} className="touch-none select-none rounded-full bg-white/90 px-5 py-3 text-sm font-black shadow-lg">Jump</button>
+            <button type="button" {...press('Space')} className="touch-none select-none rounded-full bg-white/90 px-5 py-3 text-sm font-black shadow-lg">{T.wJump}</button>
             {nearPlace && (
               <button
                 type="button"
@@ -440,12 +460,13 @@ export default function NeighborhoodGame({ onExit }) {
 
 /** Side mission board: shows the one active side mission, or offers a new one. */
 function MissionCard({ mission, last, onGet }) {
+  const T = useT();
   if (!mission) {
     return (
       <div className="mt-2 border-t border-slate-200 pt-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-bold text-slate-600">No side mission</span>
-          <button type="button" onClick={onGet} className="rounded-lg bg-purple-600 px-2 py-1 text-xs font-black text-white">Get one</button>
+          <span className="text-xs font-bold text-slate-600">{T.wNoSide}</span>
+          <button type="button" onClick={onGet} className="rounded-lg bg-purple-600 px-2 py-1 text-xs font-black text-white">{T.wGetOne}</button>
         </div>
         {last && <p className="mt-1 text-[11px] text-slate-600">Last: {last.title}. Cash {inr(last.before.cash)} → {inr(last.after.cash)}.</p>}
       </div>
@@ -464,6 +485,7 @@ function MissionCard({ mission, last, onGet }) {
 }
 
 function Stat({ label, value, tone = 'text-slate-900' }) {
+  const T = useT();
   return (
     <div>
       <span className="block text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</span>
@@ -474,6 +496,7 @@ function Stat({ label, value, tone = 'text-slate-900' }) {
 
 /** Virtual joystick for touch screens. It reports a vector, so diagonals and partial tilt work. */
 function Stick({ inputRef }) {
+  const T = useT();
   const base = useRef(null);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const move = (e) => {
@@ -493,7 +516,7 @@ function Stick({ inputRef }) {
     <div
       ref={base}
       role="img"
-      aria-label="Move joystick. Drag to walk."
+      aria-label={T.wStick}
       onPointerDown={(e) => {
         e.preventDefault();
         e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -523,7 +546,9 @@ const CONTROL_GUIDE = [
 ];
 
 /** Pause menu: resume, adjust look settings, see the controls, or leave the neighbourhood. */
-function PauseMenu({ controls, onChange, onResume, onExit }) {
+function PauseMenu({ controls, onChange, onResume, onExit, onRestart }) {
+  const T = useT();
+  const [confirming, setConfirming] = useState(false);
   return (
     <div
       role="dialog"
@@ -531,16 +556,29 @@ function PauseMenu({ controls, onChange, onResume, onExit }) {
       aria-labelledby="pause-title"
       className="absolute inset-3 z-10 flex flex-col gap-4 overflow-y-auto rounded-3xl bg-white/95 p-5 shadow-2xl backdrop-blur md:inset-x-auto md:left-1/2 md:top-6 md:w-[30rem] md:-translate-x-1/2"
     >
-      <h2 id="pause-title" className="text-2xl font-black text-ink-900">Paused</h2>
+      <h2 id="pause-title" className="text-2xl font-black text-ink-900">{T.wPaused}</h2>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={onResume} className="btn-primary"><Play size={16} aria-hidden="true" /> Resume</button>
-        <button type="button" onClick={onExit} className="btn-secondary"><LogOut size={16} aria-hidden="true" /> Back to PaisaPath</button>
+        <button type="button" onClick={onResume} className="btn-primary"><Play size={16} aria-hidden="true" /> {T.wResume}</button>
+        <button type="button" onClick={onExit} className="btn-secondary"><LogOut size={16} aria-hidden="true" /> {T.lmBack}</button>
+      </div>
+
+      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+        <p className="text-sm font-bold text-rose-900">{T.wRestartTitle}</p>
+        <p className="mt-1 text-sm text-rose-900/80">{T.wRestartNote}</p>
+        {confirming ? (
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={T.wRestartTitle}>
+            <button type="button" onClick={onRestart} className="btn-primary bg-rose-600 hover:bg-rose-700"><RotateCcw size={16} aria-hidden="true" /> {T.wYesRestart}</button>
+            <button type="button" onClick={() => setConfirming(false)} className="btn-secondary">{T.wKeep}</button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirming(true)} className="btn-secondary mt-3"><RotateCcw size={16} aria-hidden="true" /> {T.wRestartTitle}</button>
+        )}
       </div>
 
       <fieldset className="grid gap-3 rounded-2xl border border-slate-200 p-4">
-        <legend className="px-1 text-sm font-black text-ink-900">Look settings</legend>
+        <legend className="px-1 text-sm font-black text-ink-900">{T.wLook}</legend>
         <label className="flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
-          Sensitivity
+          {T.wSens}
           <input
             type="range"
             min="0.5"
@@ -553,7 +591,7 @@ function PauseMenu({ controls, onChange, onResume, onExit }) {
           <span className="w-10 text-right tabular-nums">{controls.sensitivity.toFixed(1)}×</span>
         </label>
         <label className="flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
-          Invert vertical look
+          {T.wInvert}
           <input
             type="checkbox"
             checked={controls.invertY}
@@ -578,7 +616,7 @@ function PauseMenu({ controls, onChange, onResume, onExit }) {
           </div>
         ))}
       </dl>
-      <p className="flex items-center gap-2 text-xs text-slate-500"><Pause size={12} aria-hidden="true" /> The world is paused while this menu is open.</p>
+      <p className="flex items-center gap-2 text-xs text-slate-500"><Pause size={12} aria-hidden="true" /> {T.wPausedNote}</p>
     </div>
   );
 }

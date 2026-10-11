@@ -47,6 +47,8 @@ export default function VoiceCompanion({ apiKey, onSetKey, lang = 'en', t, onCom
   mutedRef.current = isMuted;
   const logEndRef = useRef(null);
   const langRef = useRef(lang);
+  const silenceTimerRef = useRef(null);
+  const accumulatedTranscriptRef = useRef('');
 
   useEffect(() => {
     langRef.current = lang;
@@ -60,37 +62,61 @@ export default function VoiceCompanion({ apiKey, onSetKey, lang = 'en', t, onCom
     if (!SpeechRecognition) return undefined;
     setHasVoiceSupport(true);
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = lang === 'hi' ? 'hi-IN' : lang === 'te' ? 'te-IN' : 'en-IN';
 
     recognition.onstart = () => {
       setError(null);
       setIsListening(true);
+      accumulatedTranscriptRef.current = '';
     };
+
     recognition.onresult = (event) => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          const finalTranscript = event.results[i][0].transcript;
-          setTranscript('');
-          submitRef.current?.(finalTranscript);
-        } else {
-          interim += event.results[i][0].transcript;
-          setTranscript(interim);
-        }
+      clearTimeout(silenceTimerRef.current);
+      let full = '';
+      for (let i = 0; i < event.results.length; ++i) {
+        full += event.results[i][0].transcript + ' ';
       }
+      const trimmed = full.trim();
+      accumulatedTranscriptRef.current = trimmed;
+      setTranscript(trimmed);
+
+      // Give user 1200ms to pause naturally before auto-submitting
+      silenceTimerRef.current = setTimeout(() => {
+        const textToSubmit = accumulatedTranscriptRef.current.trim();
+        if (textToSubmit) {
+          try { recognition.stop(); } catch(e) {}
+          setTranscript('');
+          accumulatedTranscriptRef.current = '';
+          submitRef.current?.(textToSubmit);
+        }
+      }, 1200);
     };
+
     recognition.onerror = () => {
+      clearTimeout(silenceTimerRef.current);
       setIsListening(false);
       setTranscript('');
       setError('mic');
     };
-    recognition.onend = () => setIsListening(false);
+
+    recognition.onend = () => {
+      clearTimeout(silenceTimerRef.current);
+      setIsListening(false);
+      const textToSubmit = accumulatedTranscriptRef.current.trim();
+      if (textToSubmit) {
+        setTranscript('');
+        accumulatedTranscriptRef.current = '';
+        submitRef.current?.(textToSubmit);
+      }
+    };
+
     recognitionRef.current = recognition;
 
     // Stop the mic and any speech when leaving, so nothing keeps running in the background.
     return () => {
+      clearTimeout(silenceTimerRef.current);
       recognition.onresult = null;
       recognition.onend = null;
       recognition.onerror = null;
@@ -124,10 +150,13 @@ export default function VoiceCompanion({ apiKey, onSetKey, lang = 'en', t, onCom
 
   const toggleListen = () => {
     if (isListening) {
-      recognitionRef.current?.stop();
+      clearTimeout(silenceTimerRef.current);
+      try { recognitionRef.current?.stop(); } catch(e) {}
     } else {
+      clearTimeout(silenceTimerRef.current);
       stopSpeaking();
       setTranscript('');
+      accumulatedTranscriptRef.current = '';
       setError(null);
       try {
         if (recognitionRef.current) {

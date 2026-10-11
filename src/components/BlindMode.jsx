@@ -14,6 +14,8 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
   const isListeningRef = useRef(false);
   const isProcessingRef = useRef(false);
   const langRef = useRef(lang);
+  const currentTranscriptRef = useRef('');
+  const silenceTimerRef = useRef(null);
 
   useEffect(() => {
     langRef.current = lang;
@@ -28,31 +30,52 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.continuous = true;
+      recognition.interimResults = true;
       recognition.lang = lang === 'hi' ? 'hi-IN' : lang === 'te' ? 'te-IN' : 'en-IN';
       
       recognition.onstart = () => {
         isListeningRef.current = true;
         setIsListening(true);
+        currentTranscriptRef.current = '';
       };
 
       recognition.onresult = (event) => {
-        // Guard: only process once per recording session
-        if (isProcessingRef.current) return;
-        isProcessingRef.current = true;
-        const transcript = event.results[0][0].transcript;
-        processInput(transcript);
+        clearTimeout(silenceTimerRef.current);
+        let full = '';
+        for (let i = 0; i < event.results.length; ++i) {
+          full += event.results[i][0].transcript + ' ';
+        }
+        const trimmed = full.trim();
+        currentTranscriptRef.current = trimmed;
+        setMessage(trimmed ? `"${trimmed}"` : "Listening...");
+
+        // If user pauses for 1.8s while mic is active, auto-submit
+        silenceTimerRef.current = setTimeout(() => {
+          if (currentTranscriptRef.current && !isProcessingRef.current) {
+            try { recognition.stop(); } catch(e) {}
+          }
+        }, 1800);
       };
 
       recognition.onerror = () => {
+        clearTimeout(silenceTimerRef.current);
         isListeningRef.current = false;
         setIsListening(false);
       };
 
       recognition.onend = () => {
+        clearTimeout(silenceTimerRef.current);
         isListeningRef.current = false;
         setIsListening(false);
+        const textToProcess = currentTranscriptRef.current.trim();
+        currentTranscriptRef.current = '';
+        if (textToProcess && !isProcessingRef.current) {
+          isProcessingRef.current = true;
+          processInput(textToProcess);
+        } else {
+          isProcessingRef.current = false;
+        }
       };
       
       recognitionRef.current = recognition;
@@ -66,6 +89,8 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
         e.preventDefault();
         if (!e.repeat && !isListeningRef.current && !isProcessingRef.current) {
           window.speechSynthesis.cancel();
+          clearTimeout(silenceTimerRef.current);
+          currentTranscriptRef.current = '';
           try {
             if (recognitionRef.current) {
               const curLang = langRef.current || lang;
@@ -89,7 +114,11 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
       if (['INPUT', 'TEXTAREA'].includes(e.target?.tagName)) return;
       if (e.code === 'Space') {
         e.preventDefault();
-        recognitionRef.current?.stop();
+        clearTimeout(silenceTimerRef.current);
+        // Small delay to capture the final word spoken right as space was released
+        setTimeout(() => {
+          try { recognitionRef.current?.stop(); } catch(err) {}
+        }, 250);
       }
     };
 
@@ -97,6 +126,7 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
     window.addEventListener('keyup', handleKeyUp);
     
     return () => {
+      clearTimeout(silenceTimerRef.current);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.speechSynthesis.cancel();
@@ -173,15 +203,20 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
   // For users who use screen readers but still want to click
   const handleMousePress = () => {
     window.speechSynthesis.cancel();
+    clearTimeout(silenceTimerRef.current);
+    currentTranscriptRef.current = '';
     if (recognitionRef.current) {
       const curLang = langRef.current || lang;
       recognitionRef.current.lang = curLang === 'hi' ? 'hi-IN' : curLang === 'te' ? 'te-IN' : 'en-IN';
     }
-    recognitionRef.current?.start();
+    try { recognitionRef.current?.start(); } catch(e) {}
   };
 
   const handleMouseRelease = () => {
-    recognitionRef.current?.stop();
+    clearTimeout(silenceTimerRef.current);
+    setTimeout(() => {
+      try { recognitionRef.current?.stop(); } catch(err) {}
+    }, 250);
   };
 
   const handleSaveKey = (e) => {

@@ -4,7 +4,7 @@ import { formatINR } from '../../lifemode/domain/money.js';
 import { CONCEPTS, WORLDS } from '../../lifemode/content/concepts.js';
 
 export const btn = {
-  primary: 'inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 min-h-[44px]',
+  primary: 'btn-primary min-h-[44px] transition duration-200 ease-out hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50',
   secondary: 'inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-4 py-2.5 font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 min-h-[44px]',
   ghost: 'inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-bold text-purple-700 hover:bg-purple-50 min-h-[36px]',
 };

@@ -91,7 +91,7 @@ function Choices({ gs, onChoose }) {
             disabled={!available}
             onClick={() => onChoose(c.id)}
             aria-describedby={`why-${c.id}`}
-            className={`${focusRing} group flex h-full flex-col rounded-2xl border-2 bg-white p-4 text-left transition ${available ? 'border-slate-200 hover:-translate-y-0.5 hover:border-purple-400 hover:shadow-md' : 'cursor-not-allowed border-dashed border-slate-200 bg-slate-50 opacity-75'}`}
+            className={`${focusRing} group flex h-full flex-col rounded-2xl border-2 bg-white p-4 text-left transition duration-200 ease-out ${available ? 'border-slate-200 hover:-translate-y-0.5 hover:scale-[1.01] hover:border-purple-400 hover:shadow-md active:scale-[0.99]' : 'cursor-not-allowed border-dashed border-slate-200 bg-slate-50 opacity-75'}`}
           >
             <span className="flex items-start justify-between gap-2">
               <span className="text-base font-black text-slate-800">{c.label}</span>
@@ -289,7 +289,7 @@ function KnowledgeCheck({ check, state, onAnswer }) {
             const showRight = done && opt.correct;
             return (
               <button key={i} type="button" disabled={done || picked} onClick={() => onAnswer(i)}
-                className={`${focusRing} flex min-h-[44px] items-center justify-between gap-2 rounded-xl border-2 px-4 py-2 text-left font-bold ${
+                className={`${focusRing} flex min-h-[44px] items-center justify-between gap-2 rounded-xl border-2 px-4 py-2 text-left font-bold transition duration-200 ease-out hover:scale-[1.01] active:scale-[0.99] ${
                   showRight ? 'border-teal-500 bg-teal-50 text-teal-900' : picked ? 'border-rose-300 bg-rose-50 text-rose-900' : 'border-slate-200 bg-white text-slate-700 hover:border-purple-300'}`}>
                 {opt.text}
                 {showRight && <span className="flex items-center gap-1 text-sm"><CheckCircle2 size={18} aria-hidden="true" /> Correct</span>}

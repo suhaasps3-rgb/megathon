@@ -33,6 +33,7 @@ export default function LifeMode({ onExit, onLearn }) {
     setScreen('play');
   };
 
+  const pageKey = screen === 'home' || !run ? 'home' : run.phase === 'complete' ? 'report' : run.phase;
   return (
     <MotionConfig reducedMotion="user">
       <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 md:px-6">
@@ -50,6 +51,8 @@ export default function LifeMode({ onExit, onLearn }) {
           </div>
         )}
 
+        <AnimatePresence mode="wait" initial={false}>
+        <motion.div key={pageKey} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25, ease: 'easeOut' }}>
         {screen === 'home' || !run ? (
           <LifeHome gs={gs} onStart={begin} onContinue={() => setScreen('play')} onReset={game.resetAll} />
         ) : run.phase === 'complete' ? (
@@ -65,6 +68,8 @@ export default function LifeMode({ onExit, onLearn }) {
             <div className="min-w-0"><Hud gs={gs} /></div>
           </div>
         )}
+        </motion.div>
+        </AnimatePresence>
       </div>
       <Toasts events={game.events} consume={game.consumeEvents} />
     </MotionConfig>
@@ -99,27 +104,27 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-3xl bg-slate-900 p-6 text-white shadow-xl md:p-10">
-        <p className="text-sm font-black uppercase tracking-widest text-teal-300">PaisaPath</p>
-        <h1 ref={headingRef} tabIndex={-1} className="mt-1 text-4xl font-black outline-none md:text-5xl">{T.lmTitle}</h1>
-        <p className="mt-3 max-w-2xl text-lg text-slate-300">
+      <section className="card animate-fade-in relative overflow-hidden bg-gradient-to-br from-white via-white to-purple-50 p-6 md:p-10">
+        <p className="eyebrow">PaisaPath</p>
+        <h1 ref={headingRef} tabIndex={-1} className="mt-1 text-4xl font-extrabold leading-tight text-ink-900 outline-none md:text-5xl">{T.lmTitle}</h1>
+        <p className="mt-3 max-w-2xl text-lg text-slate-600">
           Live a few months of a Hyderabad student’s financial life. Earn, spend, save, dodge scams and chase a goal.
           Every rupee is fictional, every consequence is explained, and every mistake is recoverable.
         </p>
         <ul className="mt-6 grid grid-cols-2 gap-2 md:grid-cols-4">
           {Object.values(WORLDS).map((w) => (
-            <li key={w.id} className="rounded-2xl bg-white/10 p-3">
+            <motion.li whileHover={{ y: -3, scale: 1.02 }} transition={{ type: 'spring', stiffness: 320, damping: 22 }} key={w.id} className="cursor-default rounded-2xl border border-slate-200 bg-white p-3 shadow-sm hover:shadow-md">
               <span className="text-2xl" aria-hidden="true">{w.emoji}</span>
               <p className="mt-1 font-black">{w.name}</p>
-              <p className="text-xs text-slate-300">{w.tagline}</p>
-            </li>
+              <p className="text-xs text-slate-500">{w.tagline}</p>
+            </motion.li>
           ))}
         </ul>
         {active && (
-          <div className="mt-6 flex flex-col gap-3 rounded-2xl bg-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-purple-200 bg-purple-50 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-black">{run.character.avatar} {run.character.name}’s run is in progress</p>
-              <p className="text-sm text-slate-300">Chapter {run.chapterIndex + 1} of 6: {chapterTitle} · {formatINR(balancesOf(run.ledger).cash)} cash</p>
+              <p className="text-sm text-slate-600">Chapter {run.chapterIndex + 1} of 6: {chapterTitle} · {formatINR(balancesOf(run.ledger).cash)} cash</p>
             </div>
             <button type="button" onClick={onContinue} className={`${focusRing} inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-teal-400 px-5 py-3 font-black text-slate-900 hover:bg-teal-300`}>
               Continue <ArrowRight size={18} aria-hidden="true" />
@@ -127,9 +132,9 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
           </div>
         )}
         {run && run.status === 'complete' && (
-          <div className="mt-6 flex flex-col gap-3 rounded-2xl bg-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-black">{T.lmLastDone}</p>
-            <button type="button" onClick={onContinue} className={`${focusRing} inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-black text-slate-900`}>{T.lmSeeReport}</button>
+          <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-teal-200 bg-teal-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="font-black text-teal-900">{T.lmLastDone}</p>
+            <button type="button" onClick={onContinue} className={`${focusRing} btn-brand min-h-[44px]`}>{T.lmSeeReport}</button>
           </div>
         )}
       </section>

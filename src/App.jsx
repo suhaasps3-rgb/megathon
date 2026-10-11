@@ -4,6 +4,7 @@ import Home from './components/Home';
 import Onboarding from './components/Onboarding';
 import Assessment from './components/Assessment';
 import Game from './components/Game';
+import { LangContext } from './i18n/context';
 import Report from './components/Report';
 import NgoDashboard from './components/NgoDashboard';
 import VoiceCompanion from './components/VoiceCompanion';
@@ -96,6 +97,7 @@ function App() {
   }
 
   return (
+    <LangContext.Provider value={t}>
     <MotionConfig reducedMotion="user">
       <div className="app-bg min-h-screen overflow-x-clip pb-16">
         <a href="#main" className="sr-only z-[60] rounded-xl bg-ink-900 px-4 py-3 font-bold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
@@ -141,6 +143,7 @@ function App() {
         </main>
       </div>
     </MotionConfig>
+    </LangContext.Provider>
   );
 }
 

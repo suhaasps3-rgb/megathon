@@ -1,4 +1,5 @@
 import React from 'react';
+import { useT } from '../../i18n/context';
 import { RotateCcw, MapPin, Lightbulb, Sparkles } from 'lucide-react';
 
 const inr = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
@@ -14,6 +15,7 @@ const LEVEL = {
  * when no record exists, it says so instead of showing an invented analysis.
  */
 export default function ResultsPanel({ analysis, onExplore, onReplay }) {
+  const T = useT();
   return (
     <div
       role="dialog"
@@ -24,7 +26,7 @@ export default function ResultsPanel({ analysis, onExplore, onReplay }) {
       <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-purple-700">
         <Sparkles size={14} aria-hidden="true" /> Mission complete
       </p>
-      <h2 id="results-title" className="mt-1 text-2xl font-black text-ink-900">Your week, in numbers</h2>
+      <h2 id="results-title" className="mt-1 text-2xl font-black text-ink-900">{T.rsTitle}</h2>
 
       {!analysis.available ? (
         <p className="mt-4 rounded-2xl bg-slate-100 p-4 text-sm font-bold text-slate-700">{analysis.reason}</p>
@@ -33,16 +35,16 @@ export default function ResultsPanel({ analysis, onExplore, onReplay }) {
           <p className="mt-1 text-sm text-slate-600">{analysis.objective}</p>
 
           <dl className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-            <Cell label="Started with" value={inr(analysis.cashflow.startCash)} />
-            <Cell label="Earned" value={`+${inr(analysis.cashflow.income)}`} tone="text-teal-700" />
-            <Cell label="Spent" value={`−${inr(analysis.cashflow.bikeSpend + analysis.cashflow.repairSpend)}`} tone="text-rose-600" />
-            <Cell label="Ended with" value={inr(analysis.cashflow.endCash)} />
-            <Cell label="Savings" value={inr(analysis.cashflow.endSavings)} />
-            {analysis.cashflow.endDebt > 0 && <Cell label="Debt" value={inr(analysis.cashflow.endDebt)} tone="text-rose-600" />}
+            <Cell label={T.rsStart} value={inr(analysis.cashflow.startCash)} />
+            <Cell label={T.rsEarned} value={`+${inr(analysis.cashflow.income)}`} tone="text-teal-700" />
+            <Cell label={T.rsSpent} value={`−${inr(analysis.cashflow.bikeSpend + analysis.cashflow.repairSpend)}`} tone="text-rose-600" />
+            <Cell label={T.rsEnded} value={inr(analysis.cashflow.endCash)} />
+            <Cell label={T.lmSavings} value={inr(analysis.cashflow.endSavings)} />
+            {analysis.cashflow.endDebt > 0 && <Cell label={T.lmDebt} value={inr(analysis.cashflow.endDebt)} tone="text-rose-600" />}
           </dl>
 
           <section aria-labelledby="dims-title" className="mt-5">
-            <h3 id="dims-title" className="text-sm font-black text-ink-900">How your choices scored</h3>
+            <h3 id="dims-title" className="text-sm font-black text-ink-900">{T.rsDims}</h3>
             <ul className="mt-2 grid gap-3">
               {analysis.dimensions.map((d) => (
                 <li key={d.id} className="rounded-2xl border border-slate-200 p-3">
@@ -70,13 +72,13 @@ export default function ResultsPanel({ analysis, onExplore, onReplay }) {
           <section className="mt-4 grid gap-3 sm:grid-cols-2">
             {analysis.strength && (
               <div className="rounded-2xl bg-teal-50 p-4">
-                <p className="text-xs font-black uppercase text-teal-800">Did well</p>
+                <p className="text-xs font-black uppercase text-teal-800">{T.rsDidWell}</p>
                 <p className="mt-1 text-sm text-slate-800">{analysis.strength.explain}</p>
               </div>
             )}
             {analysis.improvement && (
               <div className="rounded-2xl bg-rose-50 p-4">
-                <p className="text-xs font-black uppercase text-rose-800">To improve</p>
+                <p className="text-xs font-black uppercase text-rose-800">{T.rsImprove}</p>
                 <p className="mt-1 text-sm text-slate-800">{analysis.improvement.label}: {analysis.improvement.explain}</p>
               </div>
             )}
@@ -84,18 +86,18 @@ export default function ResultsPanel({ analysis, onExplore, onReplay }) {
 
           <p className="mt-4 flex gap-2 rounded-2xl bg-amber-50 p-4 text-sm text-slate-800">
             <Lightbulb size={18} className="mt-0.5 shrink-0 text-amber-600" aria-hidden="true" />
-            <span><strong>Principle:</strong> {analysis.principle} <strong>Next:</strong> {analysis.recommendation}</span>
+            <span><strong>{T.rsPrinciple}</strong> {analysis.principle} <strong>{T.rsNext}</strong> {analysis.recommendation}</span>
           </p>
-          <p className="mt-3 text-xs text-slate-500">Simulated balances and returns are illustrations, not predictions or guarantees.</p>
+          <p className="mt-3 text-xs text-slate-500">{T.rsDisclaimer}</p>
         </>
       )}
 
       <div className="mt-5 flex flex-wrap gap-2">
         <button type="button" onClick={onExplore} className="btn-primary">
-          <MapPin size={16} aria-hidden="true" /> Explore the neighbourhood
+          <MapPin size={16} aria-hidden="true" /> {T.rsExplore}
         </button>
         <button type="button" onClick={onReplay} className="btn-secondary">
-          <RotateCcw size={16} aria-hidden="true" /> Play again
+          <RotateCcw size={16} aria-hidden="true" /> {T.rsPlayAgain}
         </button>
       </div>
     </div>
@@ -103,6 +105,7 @@ export default function ResultsPanel({ analysis, onExplore, onReplay }) {
 }
 
 function Cell({ label, value, tone = 'text-slate-900' }) {
+  const T = useT();
   return (
     <div className="rounded-xl bg-slate-50 px-3 py-2">
       <dt className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</dt>

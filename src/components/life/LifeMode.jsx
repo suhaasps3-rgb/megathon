@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useT } from '../../i18n/context';
+import { fill } from '../../data/translations';
 import { MotionConfig, motion, AnimatePresence } from 'framer-motion';
 import { Play, RotateCcw, ArrowLeft, ArrowRight, ShieldCheck, Trash2, X, Lock } from 'lucide-react';
 import { useLifeGame } from '../../lifemode/useLifeGame.js';
@@ -20,6 +22,7 @@ const AVATARS = ['🧑‍🎓', '👩‍🎓', '👨‍🎓', '🧑‍💻', '�
  * renders the authoritative state and sends player intents to the engine.
  */
 export default function LifeMode({ onExit, onLearn }) {
+  const T = useT();
   const game = useLifeGame();
   const { gs, dispatch } = game;
   const [screen, setScreen] = useState('home');
@@ -35,15 +38,15 @@ export default function LifeMode({ onExit, onLearn }) {
       <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 md:px-6">
         <div className="mb-4 flex items-center justify-between gap-2">
           <button type="button" onClick={screen === 'play' ? () => setScreen('home') : onExit} className={`${btn.ghost} ${focusRing}`}>
-            <ArrowLeft size={16} aria-hidden="true" /> {screen === 'play' ? 'Life Mode home' : 'Back to PaisaPath'}
+            <ArrowLeft size={16} aria-hidden="true" /> {screen === 'play' ? T.lmHome : T.lmBack}
           </button>
-          <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-black uppercase tracking-widest text-purple-800">Life Mode · simulated money</span>
+          <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-black uppercase tracking-widest text-purple-800">{T.lmBadge}</span>
         </div>
 
         {(game.notice || game.error) && (
           <div role="alert" className="mb-4 flex items-start justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm font-bold text-amber-900">
             <span>{game.error ?? game.notice}</span>
-            <button type="button" onClick={game.dismissNotice} className={`${focusRing} rounded`} aria-label="Dismiss"><X size={16} aria-hidden="true" /></button>
+            <button type="button" onClick={game.dismissNotice} className={`${focusRing} rounded`} aria-label={T.lmDismiss}><X size={16} aria-hidden="true" /></button>
           </div>
         )}
 
@@ -69,9 +72,10 @@ export default function LifeMode({ onExit, onLearn }) {
 }
 
 function MobileMoneyBar({ gs }) {
+  const T = useT();
   const b = balancesOf(gs.run.ledger);
   return (
-    <div className="grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white/95 p-2 text-center shadow-sm backdrop-blur lg:hidden" aria-label="Balances">
+    <div className="grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white/95 p-2 text-center shadow-sm backdrop-blur lg:hidden" aria-label={T.lmBalances}>
       {[['Cash', b.cash], ['Savings', b.savings], ['Goal', b.goal], ['Owe', b.debt]].map(([l, v]) => (
         <div key={l}><div className="text-[10px] font-bold uppercase text-slate-500">{l}</div><div className="text-sm font-black tabular-nums text-slate-800">{formatINR(v)}</div></div>
       ))}
@@ -80,6 +84,7 @@ function MobileMoneyBar({ gs }) {
 }
 
 function LifeHome({ gs, onStart, onContinue, onReset }) {
+  const T = useT();
   const run = gs.run;
   const active = run && run.status === 'active';
   const [name, setName] = useState(run?.character.name && run.character.name !== 'You' ? run.character.name : '');
@@ -96,7 +101,7 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
     <div className="space-y-6">
       <section className="overflow-hidden rounded-3xl bg-slate-900 p-6 text-white shadow-xl md:p-10">
         <p className="text-sm font-black uppercase tracking-widest text-teal-300">PaisaPath</p>
-        <h1 ref={headingRef} tabIndex={-1} className="mt-1 text-4xl font-black outline-none md:text-5xl">Life Mode</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="mt-1 text-4xl font-black outline-none md:text-5xl">{T.lmTitle}</h1>
         <p className="mt-3 max-w-2xl text-lg text-slate-300">
           Live a few months of a Hyderabad student’s financial life. Earn, spend, save, dodge scams and chase a goal.
           Every rupee is fictional, every consequence is explained, and every mistake is recoverable.
@@ -123,8 +128,8 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
         )}
         {run && run.status === 'complete' && (
           <div className="mt-6 flex flex-col gap-3 rounded-2xl bg-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-black">Your last run is complete.</p>
-            <button type="button" onClick={onContinue} className={`${focusRing} inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-black text-slate-900`}>See the report</button>
+            <p className="font-black">{T.lmLastDone}</p>
+            <button type="button" onClick={onContinue} className={`${focusRing} inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-black text-slate-900`}>{T.lmSeeReport}</button>
           </div>
         )}
       </section>
@@ -132,12 +137,12 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card>
           <h2 className="text-xl font-black text-slate-800">{active ? 'Or start a fresh run' : 'Create your character'}</h2>
-          <p className="mt-1 flex items-start gap-1.5 text-sm text-slate-600"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-teal-600" aria-hidden="true" /> A nickname is enough. Life Mode never asks for real bank details, family income or any other personal information, and progress is stored only in this browser.</p>
-          <label htmlFor="lm-name" className="mt-4 block text-sm font-bold text-slate-700">Nickname (optional)</label>
-          <input id="lm-name" value={name} maxLength={24} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sai"
+          <p className="mt-1 flex items-start gap-1.5 text-sm text-slate-600"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-teal-600" aria-hidden="true" /> {T.lmNickHelp}</p>
+          <label htmlFor="lm-name" className="mt-4 block text-sm font-bold text-slate-700">{T.lmNick}</label>
+          <input id="lm-name" value={name} maxLength={24} onChange={(e) => setName(e.target.value)} placeholder={T.lmNickPh}
             className={`${focusRing} mt-1 w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-4 py-3 font-bold`} />
           <fieldset className="mt-4">
-            <legend className="text-sm font-bold text-slate-700">Avatar</legend>
+            <legend className="text-sm font-bold text-slate-700">{T.lmAvatar}</legend>
             <div className="mt-2 flex flex-wrap gap-2">
               {AVATARS.map((a) => (
                 <button key={a} type="button" onClick={() => setAvatar(a)} aria-pressed={avatar === a} aria-label={`Avatar ${a}`}
@@ -150,17 +155,17 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
           </button>
           {confirm === 'restart' && (
             <div role="alertdialog" aria-labelledby="restart-q" className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
-              <p id="restart-q" className="font-bold text-amber-900">Start over? Your current run’s money and decisions will be cleared. Aura Points, badges and what you’ve learned are kept, and first-time rewards aren’t paid twice.</p>
+              <p id="restart-q" className="font-bold text-amber-900">{T.lmRestartQ}</p>
               <div className="mt-3 flex gap-2">
-                <button type="button" className={`${btn.primary} ${focusRing}`} onClick={() => { setConfirm(null); onStart({ name, avatar }); }}>Yes, start over</button>
-                <button type="button" className={`${btn.secondary} ${focusRing}`} onClick={() => setConfirm(null)}>Keep my run</button>
+                <button type="button" className={`${btn.primary} ${focusRing}`} onClick={() => { setConfirm(null); onStart({ name, avatar }); }}>{T.lmYesRestart}</button>
+                <button type="button" className={`${btn.secondary} ${focusRing}`} onClick={() => setConfirm(null)}>{T.lmKeepRun}</button>
               </div>
             </div>
           )}
         </Card>
 
         <Card>
-          <h2 className="text-xl font-black text-slate-800">Your progress</h2>
+          <h2 className="text-xl font-black text-slate-800">{T.lmProgress}</h2>
           <p className="mt-1 text-sm font-bold text-purple-700">Level {lvl.level} · {lvl.title} · {gs.profile.xp} Aura Points</p>
           <ul className="mt-4 grid grid-cols-3 gap-2">
             {ACHIEVEMENTS.map((a) => {
@@ -177,7 +182,7 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
           </ul>
           {gs.profile.pastRuns.length > 0 && (
             <div className="mt-4">
-              <h3 className="text-sm font-black text-slate-700">Past runs</h3>
+              <h3 className="text-sm font-black text-slate-700">{T.lmPastRuns}</h3>
               <ul className="mt-1 space-y-1 text-sm text-slate-600">
                 {[...gs.profile.pastRuns].reverse().map((p) => (
                   <li key={p.number}>Run {p.number}: {goalById(p.goalId)?.emoji ?? '🎯'} goal {p.goalPct}% · net worth {formatINR(p.netWorth)} · wellbeing {p.wellbeing}</li>
@@ -188,14 +193,14 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
           <div className="mt-4 border-t border-slate-100 pt-3">
             {confirm === 'reset' ? (
               <div role="alertdialog" aria-labelledby="reset-q" className="space-y-2">
-                <p id="reset-q" className="text-sm font-bold text-rose-800">Erase all Life Mode progress, Aura Points and badges from this browser?</p>
+                <p id="reset-q" className="text-sm font-bold text-rose-800">{T.lmResetQ}</p>
                 <div className="flex gap-2">
-                  <button type="button" className={`${btn.secondary} ${focusRing} border-rose-300 text-rose-800`} onClick={() => { setConfirm(null); onReset(); }}>Erase everything</button>
-                  <button type="button" className={`${btn.secondary} ${focusRing}`} onClick={() => setConfirm(null)}>Cancel</button>
+                  <button type="button" className={`${btn.secondary} ${focusRing} border-rose-300 text-rose-800`} onClick={() => { setConfirm(null); onReset(); }}>{T.lmEraseAll}</button>
+                  <button type="button" className={`${btn.secondary} ${focusRing}`} onClick={() => setConfirm(null)}>{T.lmCancel}</button>
                 </div>
               </div>
             ) : (
-              <button type="button" className={`${btn.ghost} ${focusRing} text-slate-500`} onClick={() => setConfirm('reset')}><Trash2 size={14} aria-hidden="true" /> Reset all progress</button>
+              <button type="button" className={`${btn.ghost} ${focusRing} text-slate-500`} onClick={() => setConfirm('reset')}><Trash2 size={14} aria-hidden="true" /> {T.lmResetAll}</button>
             )}
           </div>
         </Card>
@@ -205,6 +210,7 @@ function LifeHome({ gs, onStart, onContinue, onReset }) {
 }
 
 function ChapterIntro({ run, onBegin }) {
+  const T = useT();
   const c = CHAPTERS[run.chapterIndex];
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus(); }, [run.chapterIndex]);
@@ -215,7 +221,7 @@ function ChapterIntro({ run, onBegin }) {
       <h2 id="ch-title" ref={ref} tabIndex={-1} className="mt-1 text-3xl font-black outline-none md:text-4xl">{c.title}</h2>
       <p className="mt-2 text-lg text-white/90">{c.blurb}</p>
       <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm font-bold"><span aria-hidden="true">{WORLDS[c.world].emoji}</span> {WORLDS[c.world].name}</p>
-      {c.n === 1 && <p className="mt-4 max-w-xl text-sm text-white/85">This is a simulation with fictional money. Choices change your balances, your room and what happens next. There are trade-offs, not trick questions.</p>}
+      {c.n === 1 && <p className="mt-4 max-w-xl text-sm text-white/85">{T.lmSimNote}</p>}
       <div className="mt-6">
         <button type="button" onClick={onBegin} className={`${focusRing} inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-white px-6 py-3 font-black text-slate-900 hover:bg-slate-100`}>
           Begin <ArrowRight size={18} aria-hidden="true" />
@@ -226,6 +232,7 @@ function ChapterIntro({ run, onBegin }) {
 }
 
 function ChapterDone({ run, onNext }) {
+  const T = useT();
   const c = CHAPTERS[run.chapterIndex];
   const next = CHAPTERS[run.chapterIndex + 1];
   const ds = run.decisions.filter((d) => d.chapter === c.n);
@@ -247,8 +254,8 @@ function ChapterDone({ run, onNext }) {
       {unlock && <p className="mt-4 rounded-2xl bg-purple-50 p-3 text-sm font-bold text-purple-900" role="status">🔓 {unlock}</p>}
       {next && (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-slate-600">Next: <span className="font-bold">Chapter {next.n} · {next.title}</span> <WorldBadge world={next.world} /></p>
-          <button type="button" onClick={onNext} className={`${btn.primary} ${focusRing}`}>Next chapter <ArrowRight size={18} aria-hidden="true" /></button>
+          <p className="text-sm text-slate-600">{T.lmNext}: <span className="font-bold">{fill(T.lmChapter, { n: next.n, title: next.title })}</span> <WorldBadge world={next.world} /></p>
+          <button type="button" onClick={onNext} className={`${btn.primary} ${focusRing}`}>{T.lmNextChapter} <ArrowRight size={18} aria-hidden="true" /></button>
         </div>
       )}
     </Card>
@@ -256,6 +263,7 @@ function ChapterDone({ run, onNext }) {
 }
 
 function Toasts({ events, consume }) {
+  const T = useT();
   const [items, setItems] = useState([]);
   useEffect(() => {
     if (!events.length) return;

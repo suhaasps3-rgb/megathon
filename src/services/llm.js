@@ -5,7 +5,10 @@ const RETRYABLE = new Set([404, 429, 500, 503]);
 
 // Thinking models can return thought parts first; keep only the answer text.
 function answerText(data) {
-  return data.candidates[0].content.parts.filter((p) => !p.thought && p.text).map((p) => p.text).join('');
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const textParts = parts.filter((p) => !p.thought && p.text).map((p) => p.text).join('');
+  if (textParts) return textParts;
+  return parts.map((p) => p.text || '').join('');
 }
 
 async function callGemini(apiKey, prompt) {

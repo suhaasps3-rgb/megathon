@@ -159,7 +159,7 @@ function App() {
               <NeighborhoodGame onExit={() => go('HOME')} />
             </Suspense>
           )}
-          {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => go('HOME')} />}
+          {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} onSetKey={handleSetApiKey} lang={lang} t={t} onComplete={() => go('HOME')} />}
         </main>
         <AppFooter />
       </div>

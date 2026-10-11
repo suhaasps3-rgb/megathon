@@ -28,15 +28,24 @@ function Loading({ label }) {
 
 function App() {
   const envKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const savedKey = typeof window !== 'undefined' ? localStorage.getItem('paisapath_gemini_key') : null;
 
   const [state, setState] = useState('HOME');
   const [lastLearn, setLastLearn] = useState('ONBOARDING');
-  const [apiKey, setApiKey] = useState(envKey || '');
+  const [apiKey, setApiKey] = useState(savedKey || envKey || '');
   const [profile, setProfile] = useState(null);
   const [assessmentScore, setAssessmentScore] = useState(0);
   const [gameData, setGameData] = useState(null);
   const [isNgoMode, setIsNgoMode] = useState(false);
   const [lang, setLang] = useState('en');
+
+  const handleSetApiKey = (key) => {
+    setApiKey(key);
+    if (typeof window !== 'undefined') {
+      if (key) localStorage.setItem('paisapath_gemini_key', key);
+      else localStorage.removeItem('paisapath_gemini_key');
+    }
+  };
 
   const t = translations[lang];
 
@@ -101,7 +110,7 @@ function App() {
   if (state === 'BLIND_MODE') {
     return (
       <>
-        <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => go('HOME')} />
+        <BlindMode apiKey={apiKey} onSetKey={handleSetApiKey} lang={lang} t={t} onExit={() => go('HOME')} />
         <AppFooter dark />
       </>
     );
@@ -127,8 +136,8 @@ function App() {
               t={t}
               profile={profile}
               hasAi={Boolean(apiKey)}
-              canEditKey={!envKey}
-              onSetKey={setApiKey}
+              canEditKey={true}
+              onSetKey={handleSetApiKey}
               onLearn={() => go('LEARN')}
               onLife={() => go('LIFE')}
               on3d={() => go('NEIGHBORHOOD')}

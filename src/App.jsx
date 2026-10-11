@@ -11,6 +11,7 @@ import VoiceCompanion from './components/VoiceCompanion';
 import BlindMode from './components/BlindMode';
 import AppHeader, { LEARN_STATES } from './components/shell/AppHeader';
 import JourneyBar from './components/shell/JourneyBar';
+import AppFooter from './components/shell/AppFooter';
 import Mascot from './components/brand/Mascot';
 import translations from './data/translations';
 const LifeMode = lazy(() => import('./components/life/LifeMode'));
@@ -89,11 +90,21 @@ function App() {
   }, [state]);
 
   if (isNgoMode) {
-    return <NgoDashboard t={t} onBack={() => setIsNgoMode(false)} />;
+    return (
+      <>
+        <NgoDashboard t={t} onBack={() => setIsNgoMode(false)} />
+        <AppFooter dark />
+      </>
+    );
   }
 
   if (state === 'BLIND_MODE') {
-    return <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => go('HOME')} />;
+    return (
+      <>
+        <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => go('HOME')} />
+        <AppFooter dark />
+      </>
+    );
   }
 
   return (
@@ -141,6 +152,7 @@ function App() {
           )}
           {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => go('HOME')} />}
         </main>
+        <AppFooter />
       </div>
     </MotionConfig>
     </LangContext.Provider>

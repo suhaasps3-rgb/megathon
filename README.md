@@ -1,8 +1,6 @@
 # PaisaPath
 
-Powered by Vanguard
-
-<img src="public/vanguard-logo.png" alt="Vanguard" height="32">
+Powered by <img src="public/vanguard-logo.png" alt="Vanguard" height="24">
 
 ## Requirements
 
@@ -66,4 +64,4 @@ Project code is released under the MIT License (see `LICENSE`).
 
 ---
 
-PaisaPath · Powered by Vanguard <img src="public/vanguard-logo.png" alt="Vanguard" height="16">
+PaisaPath · Powered by <img src="public/vanguard-logo.png" alt="Vanguard" height="16">

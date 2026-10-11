@@ -1,5 +1,7 @@
 # PaisaPath
 
+Powered by Vanguard
+
 ## Requirements
 
 - Node.js 18 or newer (with npm)
@@ -58,3 +60,7 @@ Third-party software and assets used by this project:
 Optional: AI features use the Google Gemini API when a key is configured.
 
 Project code is released under the MIT License (see `LICENSE`).
+
+---
+
+PaisaPath · Powered by Vanguard

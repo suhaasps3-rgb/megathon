@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Pause, Play, LogOut } from 'lucide-react';
+import { ArrowLeft, Pause, Play, LogOut, RotateCcw } from 'lucide-react';
 import World from './World.jsx';
 import ResultsPanel from './ResultsPanel.jsx';
 import {
@@ -14,7 +14,7 @@ import { SHOPS, buyItem } from '../../neighborhood/shops.js';
 import {
   BIKE_PRICE, SAVE_AMOUNT, REPAIR_COST, CHAI_PRICE, DELIVERY_PAY,
   payDelivery, buyBikeNow, saveInsteadOfBike, payRepair, projectSavings, loadWallet, saveWallet,
-  startNewRun, LOAN_RATE_YEARLY,
+  startNewRun, restartJourney, LOAN_RATE_YEARLY,
 } from '../../neighborhood/economy.js';
 
 const GAME_KEYS = new Set([
@@ -301,6 +301,15 @@ export default function NeighborhoodGame({ onExit }) {
   };
   const resume = () => setMenuOpen(false);
   const replay = () => setWallet((w) => startNewRun(w));
+  // A full restart also puts the player back at the start, so the world is remounted.
+  const [worldKey, setWorldKey] = useState(0);
+  const restart = () => {
+    setWallet(restartJourney());
+    setNearby(null);
+    setDialog(null);
+    setMenuOpen(false);
+    setWorldKey((k) => k + 1);
+  };
 
   const choose = (option) => {
     const res = option.run(wallet);
@@ -322,7 +331,7 @@ export default function NeighborhoodGame({ onExit }) {
         onPointerUp={onLookUp}
         onPointerCancel={onLookUp}
       >
-        <World inputRef={input} paused={dialog !== null || Boolean(analysis) || menuOpen} onNearby={setNearby} />
+        <World key={worldKey} inputRef={input} paused={dialog !== null || Boolean(analysis) || menuOpen} onNearby={setNearby} />
 
         <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <div className="pointer-events-auto max-w-xs rounded-2xl bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
@@ -406,6 +415,7 @@ export default function NeighborhoodGame({ onExit }) {
             onChange={setControls}
             onResume={resume}
             onExit={onExit}
+            onRestart={restart}
           />
         )}
 
@@ -523,7 +533,8 @@ const CONTROL_GUIDE = [
 ];
 
 /** Pause menu: resume, adjust look settings, see the controls, or leave the neighbourhood. */
-function PauseMenu({ controls, onChange, onResume, onExit }) {
+function PauseMenu({ controls, onChange, onResume, onExit, onRestart }) {
+  const [confirming, setConfirming] = useState(false);
   return (
     <div
       role="dialog"
@@ -535,6 +546,19 @@ function PauseMenu({ controls, onChange, onResume, onExit }) {
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={onResume} className="btn-primary"><Play size={16} aria-hidden="true" /> Resume</button>
         <button type="button" onClick={onExit} className="btn-secondary"><LogOut size={16} aria-hidden="true" /> Back to PaisaPath</button>
+      </div>
+
+      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+        <p className="text-sm font-bold text-rose-900">Restart my journey</p>
+        <p className="mt-1 text-sm text-rose-900/80">Starts again with ₹1,000 cash, no savings or debt, and an empty decision log. Look settings are kept.</p>
+        {confirming ? (
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Confirm restart">
+            <button type="button" onClick={onRestart} className="btn-primary bg-rose-600 hover:bg-rose-700"><RotateCcw size={16} aria-hidden="true" /> Yes, restart</button>
+            <button type="button" onClick={() => setConfirming(false)} className="btn-secondary">Keep my progress</button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirming(true)} className="btn-secondary mt-3"><RotateCcw size={16} aria-hidden="true" /> Restart my journey</button>
+        )}
       </div>
 
       <fieldset className="grid gap-3 rounded-2xl border border-slate-200 p-4">

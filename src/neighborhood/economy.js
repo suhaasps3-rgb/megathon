@@ -137,6 +137,14 @@ export function startNewRun(s) {
   return { ...START, runs: (s.runs || 0) + 1, ...(mission ? { mission } : {}) };
 }
 
+/**
+ * Wipes the journey back to the start: money, debts, savings, decision log, mission history and
+ * run count. Only the look settings live elsewhere, so they are kept on purpose.
+ */
+export function restartJourney() {
+  return { ...START };
+}
+
 /** Reads the saved wallet. Storage can be blocked or hold junk, so any failure yields START. */
 export function loadWallet(store = globalThis.localStorage) {
   try {

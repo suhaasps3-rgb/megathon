@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { START, payDelivery, buyBikeNow, saveInsteadOfBike, payRepair, startNewRun, record } from './economy.js';
+import { START, payDelivery, buyBikeNow, saveInsteadOfBike, payRepair, startNewRun, restartJourney, record } from './economy.js';
 import { analyseRun } from './analysis.js';
 
 const run = (...steps) => steps.reduce((w, f) => f(w).state, START);
@@ -61,5 +61,16 @@ describe('analyseRun', () => {
     expect(r.counterfactual.title).toBe('If you had saved the money');
     expect(r.counterfactual.text).toContain('Simulated only');
     expect(r.cashflow.bikeSpend).toBe(2400);
+  });
+});
+
+describe('restart journey', () => {
+  it('clears money, log, runs and mission history back to the start', () => {
+    let w = { ...START, runs: 3, log: [{ id: 1 }], results: [{ id: 'x' }], mission: { active: null, completed: 4 } };
+    w = restartJourney(w);
+    expect(w.cash).toBe(START.cash);
+    expect(w.runs ?? 0).toBe(0);
+    expect(w.log ?? []).toEqual([]);
+    expect(w.mission).toBeUndefined();
   });
 });

@@ -97,8 +97,10 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
     setMessage(t.processing);
 
     // Without a key, Audio Mode still logs simple sentences locally.
-    const offline = !apiKey;
-    const result = offline ? parseOffline(transcript) : await parseVoiceAllocation(apiKey, transcript, lang);
+    // If the AI cannot be reached, fall back to the same local parsing instead of reading out an error.
+    let result = apiKey ? await parseVoiceAllocation(apiKey, transcript, lang).catch(() => ({ failed: true })) : null;
+    const offline = !result || result.failed;
+    if (offline) result = parseOffline(transcript);
     
     let netChange = 0;
     if (result.actions && Array.isArray(result.actions)) {

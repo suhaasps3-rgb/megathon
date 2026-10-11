@@ -43,3 +43,18 @@ npm run preview   # serve the production build locally
 ## Datasets and model weights
 
 None. The app uses no external datasets and ships no model weights. AI features call the Google Gemini API only when a key is set.
+
+## Credits
+
+Third-party software and assets used by this project:
+
+- [React](https://react.dev) and [React DOM](https://react.dev), MIT License
+- [Vite](https://vitejs.dev), with [Tailwind CSS](https://tailwindcss.com) and PostCSS, for the build (MIT License)
+- [Framer Motion](https://www.framer.com/motion/), MIT License
+- [Lucide](https://lucide.dev) icons (`lucide-react`), ISC License
+- [three.js](https://threejs.org) and [React Three Fiber](https://docs.pmnd.rs/react-three-fiber), MIT License (3D World)
+- [Google Fonts](https://fonts.google.com): Plus Jakarta Sans, Bricolage Grotesque, Noto Sans Devanagari and Noto Sans Telugu, SIL Open Font License 1.1
+
+Optional: AI features use the Google Gemini API when a key is configured.
+
+Project code is released under the MIT License (see `LICENSE`).

@@ -51,6 +51,30 @@ describe('questions are not transactions', () => {
   it('still logs a statement of what happened', () => {
     expect(parseOffline('I bought a cycle for 1000').actions).toEqual([{ type: 'expense', amount: 1000, label: 'Cycle' }]);
   });
+
+  it('does not log a future plan', () => {
+    expect(parseOffline('will spend 300 tomorrow').actions).toEqual([]);
+  });
+
+  it('treats "or so" as an estimate, not an alternative', () => {
+    expect(parseOffline('spent 100 or so on chai').actions).toEqual([{ type: 'expense', amount: 100, label: 'Chai' }]);
+  });
+});
+
+describe('money in and out', () => {
+  it('logs being scammed as a loss, not income', () => {
+    expect(parseOffline('got scammed of 2000 on OLX').actions).toEqual([{ type: 'expense', amount: 2000, label: 'OLX' }]);
+  });
+
+  it('reads "gave" as money received', () => {
+    const { actions } = parseOffline('mom gave 500 for books, spent 450');
+    expect(actions.map((a) => [a.type, a.amount])).toEqual([['income', 500], ['expense', 450]]);
+  });
+
+  it('logs orders and recharges as expenses', () => {
+    expect(parseOffline('ordered biryani for 250').actions).toEqual([{ type: 'expense', amount: 250, label: 'Biryani' }]);
+    expect(parseOffline('recharged 199').actions).toEqual([{ type: 'expense', amount: 199, label: 'Recharge' }]);
+  });
 });
 
 describe('parseAmount', () => {

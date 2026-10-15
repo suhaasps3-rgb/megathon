@@ -205,10 +205,11 @@ export async function parseVoiceAllocation(apiKey, transcript, lang = 'en') {
       };
     }
 
-    return { 
+    // The raw error stays in the console; callers fall back to the offline mentor.
+    return {
       failed: true,
-      actions: [], 
-      companionResponse: `Error: ${error.message}` 
+      actions: [],
+      companionResponse: 'My AI could not answer just now. Please try again.'
     };
   }
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '../../i18n/context';
 import { fill } from '../../data/translations';
 import { ArrowLeft, Pause, Play, LogOut, RotateCcw } from 'lucide-react';
-import World from './World.jsx';
+import World, { defaultQuality } from './World.jsx';
 import ResultsPanel from './ResultsPanel.jsx';
 import {
   acceptMission, completeMission, depositToReserve, repayDebt, takeShift, viewSipSimulation, missionStateOf, TEMPLATES, SHIFT_PAY,
@@ -198,6 +198,7 @@ export default function NeighborhoodGame({ onExit }) {
   const input = useRef({ keys: new Set(), stick: { x: 0, y: 0 }, look: { yaw: 0, pitch: DEFAULT_PITCH } });
   const [controls, setControls] = useState(() => loadControls());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [quality, setQuality] = useState(() => defaultQuality());
   const controlsRef = useRef(controls);
   controlsRef.current = controls;
   const lookDrag = useRef(null);
@@ -334,7 +335,7 @@ export default function NeighborhoodGame({ onExit }) {
         onPointerUp={onLookUp}
         onPointerCancel={onLookUp}
       >
-        <World key={worldKey} inputRef={input} paused={dialog !== null || Boolean(analysis) || menuOpen} onNearby={setNearby} />
+        <World key={worldKey} inputRef={input} paused={dialog !== null || Boolean(analysis) || menuOpen} onNearby={setNearby} quality={quality} />
 
         <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <div className="pointer-events-auto max-w-xs rounded-2xl bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
@@ -423,6 +424,8 @@ export default function NeighborhoodGame({ onExit }) {
           <PauseMenu
             controls={controls}
             onChange={setControls}
+            quality={quality}
+            onQuality={setQuality}
             onResume={resume}
             onExit={onExit}
             onRestart={restart}
@@ -546,7 +549,7 @@ const CONTROL_GUIDE = [
 ];
 
 /** Pause menu: resume, adjust look settings, see the controls, or leave the neighbourhood. */
-function PauseMenu({ controls, onChange, onResume, onExit, onRestart }) {
+function PauseMenu({ controls, onChange, quality, onQuality, onResume, onExit, onRestart }) {
   const T = useT();
   const [confirming, setConfirming] = useState(false);
   return (
@@ -574,6 +577,16 @@ function PauseMenu({ controls, onChange, onResume, onExit, onRestart }) {
           <button type="button" onClick={() => setConfirming(true)} className="btn-secondary mt-3"><RotateCcw size={16} aria-hidden="true" /> {T.wRestartTitle}</button>
         )}
       </div>
+
+      <fieldset className="grid gap-2 rounded-2xl border border-slate-200 p-4">
+        <legend className="px-1 text-sm font-black text-ink-900">{T.wGraphics}</legend>
+        {['low', 'high'].map((q) => (
+          <label key={q} className="flex items-center gap-3 text-sm font-bold text-slate-800">
+            <input type="radio" name="quality" value={q} checked={quality === q} onChange={() => onQuality(q)} className="h-4 w-4 accent-purple-600" />
+            {q === 'low' ? T.wGraphicsLow : T.wGraphicsHigh}
+          </label>
+        ))}
+      </fieldset>
 
       <fieldset className="grid gap-3 rounded-2xl border border-slate-200 p-4">
         <legend className="px-1 text-sm font-black text-ink-900">{T.wLook}</legend>

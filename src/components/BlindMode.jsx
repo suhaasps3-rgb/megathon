@@ -167,6 +167,25 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
       result = parseOffline(transcript);
     }
 
+    // Without a key, or when the AI cannot be reached, Audio Mode still answers locally.
+    // API error text is never spoken or shown; the offline reply replaces it.
+    let result;
+    let fellBack = false;
+    if (!apiKey) {
+      result = parseOffline(transcript);
+    } else {
+      try {
+        result = await parseVoiceAllocation(apiKey, transcript, lang);
+      } catch {
+        result = { failed: true };
+      }
+      if (!result || result.failed) {
+        result = parseOffline(transcript);
+        fellBack = true;
+      }
+    }
+    const offline = !apiKey || fellBack;
+
     if (!result) {
       result = parseOffline(transcript);
       offline = true;
@@ -185,9 +204,10 @@ export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
     
     setWallet(prev => {
       const newWallet = prev + netChange;
-      let reply = result.companionResponse;
+      let reply = result.companionResponse || offlineReply(result.actions || [], newWallet, transcript);
       if (offline) {
         reply = offlineReply(result.actions || [], newWallet, transcript);
+        if (fellBack && t.mentorFellBack) reply = `${t.mentorFellBack} ${reply}`;
       } else if (netChange !== 0) {
         reply += ` Your new balance is ${newWallet} rupees.`;
       }

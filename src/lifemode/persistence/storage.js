@@ -3,7 +3,8 @@
  * Local persistence for Life Mode (this app has no backend or accounts).
  *
  * Stored under one key as { version, profile, run }. On load everything is validated:
- *   - wrong/missing version   → start fresh, with a notice
+ *   - older version           → upgraded step by step with migrate()
+ *   - unknown/missing version, or no upgrade step → start fresh, with a notice
  *   - invalid profile         → start fresh, with a notice
  *   - invalid run (bad ledger, unknown scenario, inconsistent decisions) → keep the profile,
  *     drop the run, with a notice
@@ -85,6 +86,37 @@ export function validateRun(r) {
 }
 
 /**
+ * Upgrade steps for older saves: MIGRATIONS[n] turns a version-n save into version n + 1.
+ * When SAVE_VERSION is bumped, add the step for the old version here so saves are upgraded
+ * instead of wiped. Each step gets a copy and returns the new { profile, run } data.
+ * @type {Record<number, (data: any) => any>}
+ */
+export const MIGRATIONS = {};
+
+/**
+ * Walks a parsed save up to `target` one version at a time. Returns null when the save can't
+ * be upgraded: no version, a version newer than this app, a missing step, or a step that throws.
+ * @param {unknown} data
+ * @param {Record<number, (data: any) => any>} [migrations]
+ * @param {number} [target]
+ * @returns {any}
+ */
+export function migrate(data, migrations = MIGRATIONS, target = SAVE_VERSION) {
+  /** @type {any} */
+  let d = data;
+  try {
+    while (isObj(d) && isInt(d.version) && d.version < target) {
+      const step = migrations[d.version];
+      if (!step) return null;
+      d = { ...step(structuredClone(d)), version: d.version + 1 };
+    }
+  } catch {
+    return null;
+  }
+  return isObj(d) && d.version === target ? d : null;
+}
+
+/**
  * @param {KV | null} [store]
  * @returns {{ state: GameState, notice: string | null }}
  */
@@ -104,7 +136,8 @@ export function loadGame(store = defaultStore()) {
   } catch {
     return { state: newGame(), notice: 'Your saved game was damaged, so a new one was started.' };
   }
-  if (!isObj(data) || data.version !== SAVE_VERSION) {
+  data = migrate(data);
+  if (!data) {
     return { state: newGame(), notice: 'Your saved game was from an older version, so a new one was started.' };
   }
   if (!isValidProfile(data.profile)) return { state: newGame(), notice: 'Your saved progress was damaged, so a new one was started.' };

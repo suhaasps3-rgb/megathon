@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loadGame, saveGame, STORAGE_KEY, SAVE_VERSION } from '../persistence/storage.js';
+import { loadGame, saveGame, migrate, MIGRATIONS, STORAGE_KEY, SAVE_VERSION } from '../persistence/storage.js';
 import { choose, advance } from '../domain/game.js';
 import { balancesOf } from '../domain/ledger.js';
 import { rupees } from '../domain/money.js';
@@ -63,5 +63,38 @@ describe('persistence', () => {
     const throwing = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('quota'); }, removeItem() {} };
     expect(loadGame(throwing).notice).toMatch(/couldn’t be read/);
     expect(saveGame(begin(), throwing)).toBe(false);
+  });
+});
+
+describe('save migration', () => {
+  it('upgrades an old save one version at a time', () => {
+    const v1 = { version: 1, profile: { xp: 10 }, run: null };
+    const steps = {
+      1: (d) => ({ ...d, profile: { ...d.profile, coins: 0 } }),
+      2: (d) => ({ ...d, profile: { ...d.profile, coins: d.profile.coins + 5 } }),
+    };
+    expect(migrate(v1, steps, 3)).toEqual({ version: 3, profile: { xp: 10, coins: 5 }, run: null });
+    expect(v1).toEqual({ version: 1, profile: { xp: 10 }, run: null }); // the input is not changed
+  });
+  it('gives up when it cannot upgrade', () => {
+    expect(migrate({ version: 1 }, {}, 2)).toBeNull(); // no step
+    expect(migrate({ version: 3 }, {}, 2)).toBeNull(); // newer than this app
+    expect(migrate({ version: 1 }, { 1: () => { throw new Error('bad'); } }, 2)).toBeNull();
+    expect(migrate({}, {}, 2)).toBeNull();
+    expect(migrate({ version: 2, profile: {} }, {}, 2)).toEqual({ version: 2, profile: {} });
+  });
+  it('loadGame restores an older save through a migration instead of wiping it', () => {
+    const store = memoryStore();
+    const s = toSaturday();
+    saveGame(s, store);
+    const old = JSON.parse(store.m.get(STORAGE_KEY));
+    old.version = SAVE_VERSION - 1;
+    store.setItem(STORAGE_KEY, JSON.stringify(old));
+    MIGRATIONS[SAVE_VERSION - 1] = (d) => d;
+    try {
+      expect(loadGame(store)).toEqual({ state: s, notice: null });
+    } finally {
+      delete MIGRATIONS[SAVE_VERSION - 1];
+    }
   });
 });

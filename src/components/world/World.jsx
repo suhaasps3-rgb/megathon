@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { createContext, useContext, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import {
@@ -16,14 +16,36 @@ const ACCEL = 14; // how quickly the player reaches full speed
 const DECEL = 9; // how quickly the player stops
 
 /**
+ * "low" is the default on phones: no shadows, one pixel per CSS pixel and Lambert materials.
+ * "high" is the full look: soft shadows, up to 2× pixel ratio and physically based materials.
+ */
+export function defaultQuality() {
+  if (typeof window === 'undefined') return 'high';
+  const coarse = !!window.matchMedia?.('(pointer: coarse)').matches;
+  const small = Math.min(window.screen?.width || Infinity, window.screen?.height || Infinity) < 768;
+  return coarse && small ? 'low' : 'high';
+}
+
+const QualityContext = createContext('high');
+
+/** One material for both settings. Lambert ignores roughness and metalness, so they are dropped. */
+function Mat({ roughness, metalness, ...props }) {
+  return useContext(QualityContext) === 'low'
+    ? <meshLambertMaterial {...props} />
+    : <meshStandardMaterial roughness={roughness} metalness={metalness} {...props} />;
+}
+
+/**
  * Scene and player physics. `inputRef` is owned by the parent and holds the held keys, the
  * joystick vector and the camera look angles, so every control path feeds one place.
  */
-export default function World({ inputRef, paused, onNearby }) {
+export default function World({ inputRef, paused, onNearby, quality = 'high' }) {
+  const high = quality === 'high';
   // Cars still show their positions, but do not drive, for people who ask for less motion.
   const reduced = useMemo(() => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches, []);
   return (
-    <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 4.5, 8], fov: 50 }} aria-label="Neighborhood 3D world">
+    <Canvas shadows={high} dpr={high ? [1, 2] : 1} camera={{ position: [0, 4.5, 8], fov: 50 }} aria-label="Neighborhood 3D world">
+      <QualityContext.Provider value={high ? 'high' : 'low'}>
       <color attach="background" args={['#bae6fd']} />
       <fog attach="fog" args={['#cfeeff', 34, 90]} />
       <hemisphereLight args={['#e0f2fe', '#65a30d', 0.55]} />
@@ -31,7 +53,7 @@ export default function World({ inputRef, paused, onNearby }) {
       <directionalLight
         position={[9, 16, 7]}
         intensity={1.15}
-        castShadow
+        castShadow={high}
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0005}
         shadow-camera-left={-30}
@@ -46,6 +68,7 @@ export default function World({ inputRef, paused, onNearby }) {
       {POIS.map((p) => <Person key={p.id} p={p} />)}
       {WALKER_ROUTES.map((r) => <Walker key={r.id} route={r} />)}
       <Player inputRef={inputRef} paused={paused} onNearby={onNearby} />
+      </QualityContext.Provider>
     </Canvas>
   );
 }
@@ -110,12 +133,12 @@ function Ground() {
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[BOUND * 2 + 30, BOUND * 2 + 30]} />
-        <meshStandardMaterial color="#86efac" />
+        <Mat color="#86efac" />
       </mesh>
       {roads.map((r) => (
         <mesh key={r.id} rotation={[-Math.PI / 2, 0, 0]} position={[r.x, 0.012, r.z]} receiveShadow>
           <planeGeometry args={[r.w, r.d]} />
-          <meshStandardMaterial map={r.tex} roughness={0.95} />
+          <Mat map={r.tex} roughness={0.95} />
         </mesh>
       ))}
     </group>
@@ -128,11 +151,11 @@ function Obstacle({ o }) {
       <group position={[o.x, 0, o.z]}>
         <mesh position={[0, 0.7, 0]} castShadow>
           <cylinderGeometry args={[0.16, 0.22, 1.4, 8]} />
-          <meshStandardMaterial color="#78350f" roughness={0.9} />
+          <Mat color="#78350f" roughness={0.9} />
         </mesh>
         <mesh position={[0, 1.9, 0]} castShadow>
           <icosahedronGeometry args={[0.9, 1]} />
-          <meshStandardMaterial color={o.color} roughness={0.85} flatShading />
+          <Mat color={o.color} roughness={0.85} flatShading />
         </mesh>
       </group>
     );
@@ -146,12 +169,12 @@ function Obstacle({ o }) {
       </mesh>
       <mesh position={[0, o.h + 0.12, 0]} castShadow>
         <boxGeometry args={[o.hx * 2 + 0.3, 0.24, o.hz * 2 + 0.3]} />
-        <meshStandardMaterial color="#334155" roughness={0.7} />
+        <Mat color="#334155" roughness={0.7} />
       </mesh>
       {o.kind === 'tower' && (
         <mesh position={[0, o.h + 1, 0]} castShadow>
           <cylinderGeometry args={[0.05, 0.05, 2, 6]} />
-          <meshStandardMaterial color="#64748b" metalness={0.6} roughness={0.4} />
+          <Mat color="#64748b" metalness={0.6} roughness={0.4} />
         </mesh>
       )}
     </group>
@@ -167,7 +190,7 @@ function WallMaterial({ color, windowed, hx, h }) {
     t.needsUpdate = true;
     return t;
   }, [windowed, hx, h]);
-  return <meshStandardMaterial color={color} map={map} roughness={0.75} />;
+  return <Mat color={color} map={map} roughness={0.75} />;
 }
 
 function Lamp({ x, z }) {
@@ -175,11 +198,11 @@ function Lamp({ x, z }) {
     <group position={[x, 0, z]}>
       <mesh position={[0, 1.6, 0]} castShadow>
         <cylinderGeometry args={[0.05, 0.07, 3.2, 6]} />
-        <meshStandardMaterial color="#475569" metalness={0.5} roughness={0.5} />
+        <Mat color="#475569" metalness={0.5} roughness={0.5} />
       </mesh>
       <mesh position={[0, 3.25, 0]}>
         <sphereGeometry args={[0.2, 10, 8]} />
-        <meshStandardMaterial color="#fef9c3" emissive="#fde68a" emissiveIntensity={0.9} />
+        <Mat color="#fef9c3" emissive="#fde68a" emissiveIntensity={0.9} />
       </mesh>
     </group>
   );
@@ -190,18 +213,18 @@ function CarBody({ color }) {
   const wheel = (x, z) => (
     <mesh position={[x, 0.3, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
       <cylinderGeometry args={[0.3, 0.3, 0.22, 12]} />
-      <meshStandardMaterial color="#111827" roughness={0.9} />
+      <Mat color="#111827" roughness={0.9} />
     </mesh>
   );
   return (
     <group>
       <mesh position={[0, 0.5, 0]} castShadow>
         <boxGeometry args={[1.1, 0.45, 2.2]} />
-        <meshStandardMaterial color={color} metalness={0.35} roughness={0.35} />
+        <Mat color={color} metalness={0.35} roughness={0.35} />
       </mesh>
       <mesh position={[0, 0.92, -0.2]} castShadow>
         <boxGeometry args={[0.95, 0.4, 1.1]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.15} metalness={0.2} />
+        <Mat color="#0f172a" roughness={0.15} metalness={0.2} />
       </mesh>
       {wheel(-0.58, 0.7)}
       {wheel(0.58, 0.7)}
@@ -210,13 +233,13 @@ function CarBody({ color }) {
       {[-0.35, 0.35].map((x) => (
         <mesh key={`h${x}`} position={[x, 0.55, 1.11]}>
           <boxGeometry args={[0.2, 0.12, 0.04]} />
-          <meshStandardMaterial color="#fefce8" emissive="#fef3c7" emissiveIntensity={1.2} />
+          <Mat color="#fefce8" emissive="#fef3c7" emissiveIntensity={1.2} />
         </mesh>
       ))}
       {[-0.35, 0.35].map((x) => (
         <mesh key={`t${x}`} position={[x, 0.55, -1.11]}>
           <boxGeometry args={[0.2, 0.12, 0.04]} />
-          <meshStandardMaterial color="#dc2626" emissive="#b91c1c" emissiveIntensity={0.8} />
+          <Mat color="#dc2626" emissive="#b91c1c" emissiveIntensity={0.8} />
         </mesh>
       ))}
     </group>
@@ -261,7 +284,7 @@ function Person({ p }) {
       </group>
       <mesh ref={ringRef} position={[0, 2.25, 0]}>
         <torusGeometry args={[0.26, 0.05, 8, 24]} />
-        <meshStandardMaterial color="#facc15" emissive="#f59e0b" emissiveIntensity={0.6} />
+        <Mat color="#facc15" emissive="#f59e0b" emissiveIntensity={0.6} />
       </mesh>
     </group>
   );
@@ -297,20 +320,20 @@ function Figure({ color, legsRef }) {
     <group>
       <mesh position={[0, 0.85, 0]} castShadow>
         <capsuleGeometry args={[0.32, 0.6, 4, 10]} />
-        <meshStandardMaterial color={color} />
+        <Mat color={color} />
       </mesh>
       <mesh position={[0, 1.6, 0]} castShadow>
         <sphereGeometry args={[0.26, 16, 12]} />
-        <meshStandardMaterial color="#fde68a" />
+        <Mat color="#fde68a" />
       </mesh>
       <group ref={legsRef}>
         <mesh position={[-0.14, 0.3, 0]} castShadow>
           <boxGeometry args={[0.16, 0.6, 0.18]} />
-          <meshStandardMaterial color="#1e3a8a" />
+          <Mat color="#1e3a8a" />
         </mesh>
         <mesh position={[0.14, 0.3, 0]} castShadow>
           <boxGeometry args={[0.16, 0.6, 0.18]} />
-          <meshStandardMaterial color="#1e3a8a" />
+          <Mat color="#1e3a8a" />
         </mesh>
       </group>
     </group>

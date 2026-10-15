@@ -5,9 +5,24 @@ import { scenarios as staticScenarios } from '../data/scenarios';
 import { generateDynamicScenario } from '../services/llm';
 import translations, { fill } from '../data/translations';
 import AnimatedNumber from './ui/AnimatedNumber';
+import { compound } from '../lifemode/domain/futureLab.js';
 import Mascot from './brand/Mascot';
 
 const inr = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+
+// The vault assumes money kept grows about 8% a year for 10 years. It is shown as an assumption.
+const VAULT_RATE = 0.08;
+const VAULT_YEARS = 10;
+
+/**
+ * Built-in scenarios carry hand-checked futureImpact values. AI scenarios only say how much a
+ * choice keeps ("saved"), and the growth is computed here, never taken from the model.
+ */
+function futureImpactOf(choice, fromAi) {
+  if (!fromAi) return Number(choice.futureImpact) || 0;
+  const saved = Number(choice.saved) || 0;
+  return saved > 0 ? compound(saved, VAULT_RATE, VAULT_YEARS) : 0;
+}
 
 function builtIn(profile) {
   const interest = profile?.interests?.[0] || 'default';
@@ -69,8 +84,9 @@ export default function Game({ apiKey, profile, assessmentScore, onComplete, t }
   const choose = (choice) => {
     if (feedback) return;
     setWallet((w) => w - (Number(choice.cost) || 0));
-    setFutureWealth((f) => f + (Number(choice.futureImpact) || 0));
-    setFeedback(choice);
+    const impact = futureImpactOf(choice, !notice);
+    setFutureWealth((f) => f + impact);
+    setFeedback({ ...choice, impact });
     setExpanded(false);
     setHistory((h) => [...h, { decision: decision.text, choice }]);
   };
@@ -119,7 +135,7 @@ export default function Game({ apiKey, profile, assessmentScore, onComplete, t }
             </div>
           </dl>
         </div>
-        <p className="mt-2 hidden text-xs text-slate-300 sm:block">{T.gmVaultNote}</p>
+        <p className="mt-2 text-xs text-slate-300" aria-hidden="true">{T.gmVaultNote}</p>
       </section>
 
       {notice && (
@@ -171,6 +187,7 @@ export default function Game({ apiKey, profile, assessmentScore, onComplete, t }
                             {feedback.isGood ? T.gmSmart : T.gmThink}
                           </h2>
                           <p className={`mt-1 text-lg leading-relaxed ${feedback.isGood ? 'text-teal-900' : 'text-saffron-900'}`}>{feedback.feedback}</p>
+                          {feedback.impact > 0 && <p className="mt-2 text-sm text-slate-700">{fill(T.gmImpact, { amount: inr(feedback.impact) })}</p>}
                         </div>
                       </div>
 

@@ -6,9 +6,13 @@
  * Plans and questions ("should I buy a cycle for 1000?") are never logged as spending.
  * It educates and never recommends a specific product; simulated growth is always labelled.
  */
-const EXPENSE = /\b(spent|spend|paid|pay|bought|buy|lost)\b/i;
-const INCOME = /\b(got|get|earned|earn|received|receive|won|gift(?:ed)?)\b/i;
-const HYPOTHETICAL = /\?|\b(should|shall|could|would|which|better|think|thinking|plan|planning|want to|wanna|have to|need to|going to|gonna|if|or|can i|is it)\b/i;
+// Money taken from you is a loss even when the sentence says "got": "got scammed of 2000".
+const LOSS = /\b(scam(?:med)?|fraud(?:ed)?|cheated|lost|stolen|robbed)\b/i;
+// "I gave 200 to Ravi" is spending; "mom gave 500" is money received.
+const EXPENSE = /\b(spent|spend|paid|pay|bought|buy|ordered|recharged|(?:i|we) gave)\b/i;
+const INCOME = /\b(got|get|earned|earn|received|receive|won|gave|gift(?:ed)?)\b/i;
+// "or" only makes a question when it offers an alternative, so "100 or so" is still a statement.
+const HYPOTHETICAL = /\?|\b(should|shall|could|would|which|better|think|thinking|plan|planning|want to|wanna|have to|need to|going to|gonna|will|tomorrow|next|if|or(?!\s+(?:so|something|more|less)\b)|can i|is it)\b/i;
 
 const WORD_NUMBERS = {
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
@@ -44,8 +48,9 @@ function labelFrom(text, fallback) {
   const m = text.match(/\b(?:on|for|from)\s+(?:a |an |the |my )?([a-z][a-z ]{1,24})/i);
   if (m) return capitalise(m[1].trim().split(/\s+/).slice(0, 3).join(' '));
   // "bought a cycle for 1000": name the thing that was bought.
-  const obj = text.match(/\b(?:bought|buy|paid for|got)\s+(?:a |an |the |my |some )?([a-z][a-z]{1,20})/i);
-  return obj ? capitalise(obj[1].toLowerCase()) : fallback;
+  const obj = text.match(/\b(?:bought|buy|paid for|got|ordered)\s+(?:a |an |the |my |some )?([a-z][a-z]{1,20})/i);
+  if (obj) return capitalise(obj[1].toLowerCase());
+  return /\brecharged\b/i.test(text) ? 'Recharge' : fallback;
 }
 
 export function parseOffline(text) {
@@ -57,7 +62,7 @@ export function parseOffline(text) {
   for (const part of all.split(/\band\b|,(?!\d)|\.(?!\d)/i)) {
     const amount = parseAmount(part);
     if (!amount) continue;
-    if (EXPENSE.test(part)) actions.push({ type: 'expense', amount, label: labelFrom(part, 'Expense') });
+    if (LOSS.test(part) || EXPENSE.test(part)) actions.push({ type: 'expense', amount, label: labelFrom(part, 'Expense') });
     else if (INCOME.test(part)) actions.push({ type: 'income', amount, label: labelFrom(part, 'Income') });
   }
   return { actions };

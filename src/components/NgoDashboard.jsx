@@ -13,10 +13,15 @@ export default function NgoDashboard({ onBack }) {
             <button onClick={onBack} className="flex items-center gap-2 text-teal-400 hover:text-teal-300 mb-4 font-bold transition-colors">
               <ChevronLeft size={20} /> Back to Student App
             </button>
-            <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-purple-400 tracking-tight">
-              Facilitator Command Center
-            </h1>
-            <p className="text-slate-400 mt-2 text-lg">Real-time telemetry for the Hyderabad Vanguard Pilot (~1,500 students)</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-purple-400 tracking-tight">
+                Facilitator Command Center
+              </h1>
+              <span className="rounded-full border border-amber-400/60 bg-amber-400/15 px-3 py-1 text-sm font-black uppercase tracking-wider text-amber-300">
+                Demo data
+              </span>
+            </div>
+            <p className="text-slate-400 mt-2 text-lg">Demo data for the Hyderabad Vanguard Pilot (~1,500 students). These numbers are illustrative, not live.</p>
           </div>
           <div className="hidden md:flex items-center gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
             <div className="w-12 h-12 bg-teal-500/20 text-teal-400 rounded-xl flex items-center justify-center">

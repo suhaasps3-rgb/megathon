@@ -1,6 +1,7 @@
 // Models are tried in order. Each gets 8 seconds, and the whole call gives up after about 12,
 // so Learn Mode and the mentor fall back to their offline versions instead of hanging.
-const MODELS = ['gemini-3.6-flash'];
+// A 503 "high demand" on one model moves on to the next instead of dropping to offline mode.
+const MODELS = ['gemini-3.6-flash', 'gemini-3.8-flash'];
 const PER_MODEL_MS = 8000;
 const TOTAL_MS = 12000;
 

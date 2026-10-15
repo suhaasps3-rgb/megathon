@@ -11,6 +11,9 @@ import EmptyState from './ui/EmptyState';
 import AnimatedNumber from './ui/AnimatedNumber';
 
 const START_BALANCE = 1000;
+// How long the mic waits after the last word before it sends what it heard.
+const SILENCE_MS = 2200;
+const RECOGNITION_LANG = { en: 'en-IN', hi: 'hi-IN', te: 'te-IN' };
 const inr = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 // Example sentences the offline parser understands, so they work with or without AI.
 const TRY_CHIPS = ['I spent 120 on lunch', 'I got 500 from my aunt', 'Should I buy a cycle or start a SIP?'];
@@ -44,14 +47,38 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
   const mutedRef = useRef(isMuted);
   mutedRef.current = isMuted;
   const logEndRef = useRef(null);
+  // Listening is continuous: the browser would otherwise stop at the first short pause and cut
+  // the sentence off. Final pieces are collected here and sent after a stretch of silence, or
+  // when the player taps stop.
+  const wantListenRef = useRef(false);
+  const heardRef = useRef('');
+  const silenceTimerRef = useRef(null);
+  const langRef = useRef(lang);
+  langRef.current = lang;
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return undefined;
     setHasVoiceSupport(true);
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
+
+    const clearSilence = () => { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; };
+    // Sends everything heard so far, once.
+    const flush = () => {
+      clearSilence();
+      const text = heardRef.current.trim();
+      heardRef.current = '';
+      setTranscript('');
+      if (text) submitRef.current?.(text);
+    };
+    const finish = () => {
+      wantListenRef.current = false;
+      try { recognition.stop(); } catch { /* already stopped */ }
+      flush();
+    };
+    recognition.stopAndSend = finish;
 
     recognition.onstart = () => {
       setError(null);
@@ -60,26 +87,41 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
     recognition.onresult = (event) => {
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          const finalTranscript = event.results[i][0].transcript;
-          setTranscript('');
-          submitRef.current?.(finalTranscript);
-        } else {
-          interim += event.results[i][0].transcript;
-          setTranscript(interim);
-        }
+        const piece = event.results[i][0].transcript;
+        if (event.results[i].isFinal) heardRef.current = `${heardRef.current} ${piece}`.trim();
+        else interim += piece;
       }
+      setTranscript(`${heardRef.current} ${interim}`.trim());
+      clearSilence();
+      silenceTimerRef.current = setTimeout(finish, SILENCE_MS);
     };
-    recognition.onerror = () => {
+    recognition.onerror = (e) => {
+      // Silence and our own stop are normal. Only a blocked or broken mic is an error.
+      if (e?.error === 'no-speech') wantListenRef.current = false; // nothing heard: stop instead of retrying forever
+      if (e?.error === 'no-speech' || e?.error === 'aborted') return;
+      wantListenRef.current = false;
+      clearSilence();
+      heardRef.current = '';
       setIsListening(false);
       setTranscript('');
       setError('mic');
     };
-    recognition.onend = () => setIsListening(false);
+    recognition.onend = () => {
+      // Chrome also ends a session by itself after a while. If the player is still talking,
+      // keep going; otherwise send what was heard.
+      if (wantListenRef.current) {
+        try { recognition.start(); return; } catch { /* fall through and stop */ }
+      }
+      wantListenRef.current = false;
+      setIsListening(false);
+      flush();
+    };
     recognitionRef.current = recognition;
 
     // Stop the mic and any speech when leaving, so nothing keeps running in the background.
     return () => {
+      wantListenRef.current = false;
+      clearTimeout(silenceTimerRef.current);
       recognition.onresult = null;
       recognition.onend = null;
       recognition.onerror = null;
@@ -111,14 +153,19 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
 
   const toggleListen = () => {
     if (isListening) {
-      recognitionRef.current?.stop();
+      // Tapping stop sends what was heard so far instead of throwing it away.
+      recognitionRef.current?.stopAndSend?.();
     } else {
       stopSpeaking();
       setTranscript('');
       setError(null);
+      heardRef.current = '';
       try {
+        recognitionRef.current.lang = RECOGNITION_LANG[langRef.current] || 'en-IN';
+        wantListenRef.current = true;
         recognitionRef.current?.start();
       } catch {
+        wantListenRef.current = false;
         setError('mic');
       }
     }

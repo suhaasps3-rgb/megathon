@@ -61,6 +61,18 @@ describe('questions are not transactions', () => {
   });
 });
 
+describe('amounts spoken with spaces', () => {
+  it('reads "3 000" and "1 20 000"-style groups from speech recognition', () => {
+    expect(parseAmount('3 000')).toBe(3000);
+    expect(parseAmount('3 000 rupees')).toBe(3000);
+    expect(parseAmount('12 500')).toBe(12500);
+    expect(parseOffline('I got 3 000 rupees from my father').actions).toEqual([{ type: 'income', amount: 3000, label: 'Father' }]);
+  });
+  it('does not merge separate numbers', () => {
+    expect(parseAmount('50 20')).toBe(50);
+  });
+});
+
 describe('money in and out', () => {
   it('logs being scammed as a loss, not income', () => {
     expect(parseOffline('got scammed of 2000 on OLX').actions).toEqual([{ type: 'expense', amount: 2000, label: 'OLX' }]);

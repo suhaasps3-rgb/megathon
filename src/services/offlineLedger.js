@@ -28,9 +28,9 @@ const inr = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
  */
 export function parseAmount(text) {
   const t = String(text || '').toLowerCase();
-  const digits = t.match(/(?:₹|rs\.?|inr)?\s*(\d{1,3}(?:,\d{2,3})+|\d+(?:\.\d+)?)\s*(k|thousand|lakhs?|lac|hundred)?\b/);
+  const digits = t.match(/(?:₹|rs\.?|inr)?\s*(\d{1,3}(?:,\d{2,3})+|\d{1,3}(?:[   ]\d{3})+(?!\d)|\d+(?:\.\d+)?)\s*(k|thousand|lakhs?|lac|hundred)?\b/);
   if (digits) {
-    const base = Number(digits[1].replace(/,/g, ''));
+    const base = Number(digits[1].replace(/[,\s  ]/g, ''));
     const scale = digits[2] ? SCALES[digits[2]] : 1;
     if (Number.isFinite(base) && base > 0) return Math.round(base * scale);
   }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Mic, MicOff, Send, Calculator, Volume2, VolumeX, Square, ArrowLeft, AlertTriangle, Info } from 'lucide-react';
+import { Mic, MicOff, Send, Calculator, Volume2, VolumeX, Square, ArrowLeft, AlertTriangle, Info, KeyRound, Sparkles, X } from 'lucide-react';
 import { parseVoiceAllocation } from '../services/llm';
 import { parseOffline, offlineReply } from '../services/offlineLedger';
 import { voiceState } from '../services/voiceState';
@@ -15,7 +15,7 @@ const inr = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 // Example sentences the offline parser understands, so they work with or without AI.
 const TRY_CHIPS = ['I spent 120 on lunch', 'I got 500 from my aunt', 'Should I buy a cycle or start a SIP?'];
 
-export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
+export default function VoiceCompanion({ apiKey, onSetKey, lang = 'en', t, onComplete }) {
   const tt = t || translations[lang] || translations.en;
   const reduceMotion = useReducedMotion();
 
@@ -26,6 +26,8 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [keyInput, setKeyInput] = useState(apiKey || '');
 
   const [wallet, setWallet] = useState(START_BALANCE);
   const [ledger, setLedger] = useState([]);
@@ -44,42 +46,77 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
   const mutedRef = useRef(isMuted);
   mutedRef.current = isMuted;
   const logEndRef = useRef(null);
+  const langRef = useRef(lang);
+  const silenceTimerRef = useRef(null);
+  const accumulatedTranscriptRef = useRef('');
+
+  useEffect(() => {
+    langRef.current = lang;
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = lang === 'hi' ? 'hi-IN' : lang === 'te' ? 'te-IN' : 'en-IN';
+    }
+  }, [lang]);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return undefined;
     setHasVoiceSupport(true);
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
+    recognition.lang = lang === 'hi' ? 'hi-IN' : lang === 'te' ? 'te-IN' : 'en-IN';
 
     recognition.onstart = () => {
       setError(null);
       setIsListening(true);
+      accumulatedTranscriptRef.current = '';
     };
+
     recognition.onresult = (event) => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          const finalTranscript = event.results[i][0].transcript;
-          setTranscript('');
-          submitRef.current?.(finalTranscript);
-        } else {
-          interim += event.results[i][0].transcript;
-          setTranscript(interim);
-        }
+      clearTimeout(silenceTimerRef.current);
+      let full = '';
+      for (let i = 0; i < event.results.length; ++i) {
+        full += event.results[i][0].transcript + ' ';
       }
+      const trimmed = full.trim();
+      accumulatedTranscriptRef.current = trimmed;
+      setTranscript(trimmed);
+
+      // Give user 1200ms to pause naturally before auto-submitting
+      silenceTimerRef.current = setTimeout(() => {
+        const textToSubmit = accumulatedTranscriptRef.current.trim();
+        if (textToSubmit) {
+          try { recognition.stop(); } catch(e) {}
+          setTranscript('');
+          accumulatedTranscriptRef.current = '';
+          submitRef.current?.(textToSubmit);
+        }
+      }, 1200);
     };
+
     recognition.onerror = () => {
+      clearTimeout(silenceTimerRef.current);
       setIsListening(false);
       setTranscript('');
       setError('mic');
     };
-    recognition.onend = () => setIsListening(false);
+
+    recognition.onend = () => {
+      clearTimeout(silenceTimerRef.current);
+      setIsListening(false);
+      const textToSubmit = accumulatedTranscriptRef.current.trim();
+      if (textToSubmit) {
+        setTranscript('');
+        accumulatedTranscriptRef.current = '';
+        submitRef.current?.(textToSubmit);
+      }
+    };
+
     recognitionRef.current = recognition;
 
     // Stop the mic and any speech when leaving, so nothing keeps running in the background.
     return () => {
+      clearTimeout(silenceTimerRef.current);
       recognition.onresult = null;
       recognition.onend = null;
       recognition.onerror = null;
@@ -103,6 +140,8 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.0;
     utterance.pitch = 1.1;
+    const curLang = langRef.current || lang;
+    utterance.lang = curLang === 'hi' ? 'hi-IN' : curLang === 'te' ? 'te-IN' : 'en-IN';
     utterance.onstart = () => setSpeaking(true);
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
@@ -111,12 +150,19 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
 
   const toggleListen = () => {
     if (isListening) {
-      recognitionRef.current?.stop();
+      clearTimeout(silenceTimerRef.current);
+      try { recognitionRef.current?.stop(); } catch(e) {}
     } else {
+      clearTimeout(silenceTimerRef.current);
       stopSpeaking();
       setTranscript('');
+      accumulatedTranscriptRef.current = '';
       setError(null);
       try {
+        if (recognitionRef.current) {
+          const curLang = langRef.current || lang;
+          recognitionRef.current.lang = curLang === 'hi' ? 'hi-IN' : curLang === 'te' ? 'te-IN' : 'en-IN';
+        }
         recognitionRef.current?.start();
       } catch {
         setError('mic');
@@ -138,23 +184,31 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
     setNotice(null);
     setMessages((m) => [...m, { role: 'user', text }]);
 
-    // Without a key, or when the AI cannot be reached, the mentor still answers locally.
+    // Check for API key to enable live AI responses
     let result;
     let fellBack = false;
     if (!apiKey) {
-      result = parseOffline(text);
-    } else {
-      try {
-        result = await parseVoiceAllocation(apiKey, text, lang);
-      } catch {
-        result = { failed: true };
-      }
-      if (!result || result.failed) {
-        result = parseOffline(text);
-        fellBack = true;
-      }
+      const askKey = "Please connect your Gemini API key using the button above to activate the live AI mentor.";
+      setMessages((m) => [...m, { role: 'mentor', text: askKey }]);
+      setShowKeyModal(true);
+      setProcessing(false);
+      setTextInput('');
+      busyRef.current = false;
+      speak(askKey);
+      return;
     }
-    const offline = !apiKey || fellBack;
+
+    try {
+      result = await parseVoiceAllocation(apiKey, text, langRef.current || lang);
+    } catch (err) {
+      console.error("Gemini parse error:", err);
+      result = { failed: true };
+    }
+    if (!result || result.failed) {
+      result = parseOffline(text);
+      fellBack = true;
+    }
+    const offline = fellBack;
 
     let netChange = 0;
     const newItems = [];
@@ -218,6 +272,34 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {apiKey ? (
+            <div className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              Gemini AI Active
+              <button
+                type="button"
+                onClick={() => {
+                  setKeyInput(apiKey);
+                  setShowKeyModal(true);
+                }}
+                className="ml-1 text-[11px] underline text-emerald-700 hover:text-emerald-950"
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setKeyInput('');
+                setShowKeyModal(true);
+              }}
+              className="flex items-center gap-1.5 rounded-xl border-2 border-purple-400 bg-purple-100 px-3.5 py-2 text-xs font-black text-purple-900 transition hover:bg-purple-200 animate-pulse"
+            >
+              <KeyRound size={14} /> Connect Gemini API Key
+            </button>
+          )}
+
           <StatusPill state={state} label={stateLabel} />
           {speaking && (
             <button type="button" onClick={stopSpeaking} className="btn-secondary min-h-[44px] px-4 text-sm">
@@ -403,6 +485,66 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
           </div>
         </section>
       </div>
+
+      {showKeyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-xl font-extrabold text-ink-900">
+                <KeyRound size={20} className="text-purple-600" /> Connect Gemini API
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowKeyModal(false)}
+                className="rounded-xl p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-slate-600">
+              Paste your Gemini API key below to activate the live AI conversational mentor for your demo.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (keyInput.trim()) {
+                  onSetKey?.(keyInput.trim());
+                  setShowKeyModal(false);
+                  const conf = "Gemini AI is now connected and ready! Ask me anything about money, budgeting, or investing.";
+                  setMessages((m) => [...m, { role: 'mentor', text: conf }]);
+                  speak(conf);
+                }
+              }}
+              className="mt-4 space-y-4"
+            >
+              <input
+                type="password"
+                autoFocus
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder="Enter Gemini API Key..."
+                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 font-mono text-sm outline-none focus:border-purple-600 focus:bg-white"
+              />
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowKeyModal(false)}
+                  className="btn-secondary px-4 py-2 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!keyInput.trim()}
+                  className="btn-primary px-5 py-2 text-sm disabled:opacity-50"
+                >
+                  Save & Connect
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

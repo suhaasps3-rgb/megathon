@@ -27,6 +27,33 @@ async function callGemini(apiKey, prompt) {
     }
   }
   throw lastError;
+// Free-tier Gemini keys allow only a few requests per minute per model, and busy models
+// return 503. Each model has its own quota, so on a 429/503 we move to the next one.
+const GEMINI_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
+const RETRYABLE = new Set([404, 429, 500, 503]);
+
+// Thinking models can return thought parts first; keep only the answer text.
+function answerText(data) {
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const textParts = parts.filter((p) => !p.thought && p.text).map((p) => p.text).join('');
+  if (textParts) return textParts;
+  return parts.map((p) => p.text || '').join('');
+}
+
+async function callGemini(apiKey, prompt) {
+  let lastResponse;
+  for (const model of GEMINI_MODELS) {
+    lastResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json' }
+      })
+    });
+    if (lastResponse.ok || !RETRYABLE.has(lastResponse.status)) break;
+  }
+  return lastResponse;
 }
 
 export async function generateDynamicScenario(apiKey, profile, assessmentLevel) {
@@ -100,8 +127,15 @@ export async function generateDynamicScenario(apiKey, profile, assessmentLevel) 
   `;
 
   const data = await callGemini(apiKey, prompt);
+  const response = await callGemini(apiKey, prompt);
+
+  if (!response.ok) {
+    throw new Error('Failed to generate scenario. Check API Key.');
+  }
+
+  const data = await response.json();
   try {
-    return JSON.parse(data.candidates[0].content.parts[0].text);
+    return JSON.parse(answerText(data));
   } catch (e) {
     throw new Error("Failed to parse LLM response");
   }
@@ -121,8 +155,15 @@ export async function assessUnderstanding(apiKey, userAnswer) {
   `;
 
   const data = await callGemini(apiKey, prompt);
+  const response = await callGemini(apiKey, prompt);
+
+  if (!response.ok) {
+    throw new Error('Failed to assess understanding. Check API Key.');
+  }
+
+  const data = await response.json();
   try {
-    return JSON.parse(data.candidates[0].content.parts[0].text);
+    return JSON.parse(answerText(data));
   } catch (e) {
     throw new Error("Failed to parse LLM response");
   }
@@ -148,7 +189,7 @@ ${words}
     1. STRICT INTENT PARSING: Distinguish between theoretical questions vs. actual transactions. 
        - If the user talks about investing (e.g., "I have 3000rs to invest in an SIP", "What is compounding?"), DO NOT extract this as an expense. Treat it as a mentor moment. Answer them directly with a highly educational, realistic, and engaging response (2-4 sentences). Explain the concepts clearly.
        - ONLY extract an "action" if the user explicitly states they just bought/spent money on a consumable item (e.g., "I just bought a burger for 100") or received pocket money.
-    2. TONE: Be helpful, accurate, and drop some real financial knowledge. You can use words like "W", "L", "flex", or "vibes" sparingly if it fits natively.
+    2. DIRECT ANSWER & RELEVANCE: Directly reference the user's specific question or keywords in your very first sentence (e.g., if asked "is a credit card free money?", immediately answer "No, a credit card is definitely not free money!"). Prove you heard every word they said before explaining why. Be helpful, accurate, and drop real financial knowledge.
     3. OFF-TOPIC QUESTIONS: If the question is clearly not about money or finance (e.g., celebrities, sports, movies), give a brief fun answer but ALWAYS end with a sentence nudging them back to financial advice. Example ending: "Anyway, got any money questions I can help you with?" or "But real talk — got any finance questions for me?"
     
     Return ONLY valid JSON matching this schema exactly (no markdown, no quotes):
@@ -166,11 +207,22 @@ ${words}
 
   try {
     const data = await callGemini(apiKey, prompt);
+    const response = await callGemini(apiKey, prompt);
+    
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("RATE_LIMIT");
+      }
+      const errorText = await response.text();
+      throw new Error(`API ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
     if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
       throw new Error('Invalid response structure from Gemini');
     }
     
-    let rawText = data.candidates[0].content.parts[0].text;
+    let rawText = answerText(data);
     rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
     
     return JSON.parse(rawText);

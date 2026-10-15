@@ -11,6 +11,7 @@ import VoiceCompanion from './components/VoiceCompanion';
 import BlindMode from './components/BlindMode';
 import AppHeader, { LEARN_STATES } from './components/shell/AppHeader';
 import JourneyBar from './components/shell/JourneyBar';
+import AppFooter from './components/shell/AppFooter';
 import Mascot from './components/brand/Mascot';
 import translations from './data/translations';
 const LifeMode = lazy(() => import('./components/life/LifeMode'));
@@ -26,16 +27,32 @@ function Loading({ label }) {
 }
 
 function App() {
-  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const envKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+  const savedKey = typeof window !== 'undefined' ? localStorage.getItem('paisapath_gemini_key') : null;
 
   const [state, setState] = useState('HOME');
   const [lastLearn, setLastLearn] = useState('ONBOARDING');
-  const [apiKey, setApiKey] = useState(envKey || '');
+  const [apiKey, setApiKey] = useState(envKey || savedKey || '');
   const [profile, setProfile] = useState(null);
   const [assessmentScore, setAssessmentScore] = useState(0);
   const [gameData, setGameData] = useState(null);
   const [isNgoMode, setIsNgoMode] = useState(false);
   const [lang, setLang] = useState('en');
+
+  useEffect(() => {
+    if (envKey) {
+      localStorage.setItem('paisapath_gemini_key', envKey);
+      setApiKey(envKey);
+    }
+  }, [envKey]);
+
+  const handleSetApiKey = (key) => {
+    setApiKey(key);
+    if (typeof window !== 'undefined') {
+      if (key) localStorage.setItem('paisapath_gemini_key', key);
+      else localStorage.removeItem('paisapath_gemini_key');
+    }
+  };
 
   const t = translations[lang];
 
@@ -89,11 +106,21 @@ function App() {
   }, [state]);
 
   if (isNgoMode) {
-    return <NgoDashboard t={t} onBack={() => setIsNgoMode(false)} />;
+    return (
+      <>
+        <NgoDashboard t={t} onBack={() => setIsNgoMode(false)} />
+        <AppFooter dark />
+      </>
+    );
   }
 
   if (state === 'BLIND_MODE') {
-    return <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => go('HOME')} />;
+    return (
+      <>
+        <BlindMode apiKey={apiKey} onSetKey={handleSetApiKey} lang={lang} t={t} onExit={() => go('HOME')} />
+        <AppFooter dark />
+      </>
+    );
   }
 
   return (
@@ -116,8 +143,8 @@ function App() {
               t={t}
               profile={profile}
               hasAi={Boolean(apiKey)}
-              canEditKey={!envKey}
-              onSetKey={setApiKey}
+              canEditKey={true}
+              onSetKey={handleSetApiKey}
               onLearn={() => go('LEARN')}
               onLife={() => go('LIFE')}
               on3d={() => go('NEIGHBORHOOD')}
@@ -139,8 +166,9 @@ function App() {
               <NeighborhoodGame onExit={() => go('HOME')} />
             </Suspense>
           )}
-          {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => go('HOME')} />}
+          {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} onSetKey={handleSetApiKey} lang={lang} t={t} onComplete={() => go('HOME')} />}
         </main>
+        <AppFooter />
       </div>
     </MotionConfig>
     </LangContext.Provider>

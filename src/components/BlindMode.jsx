@@ -1,16 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff } from 'lucide-react';
+import { Mic, MicOff, KeyRound, Sparkles, Check, X } from 'lucide-react';
 import { parseVoiceAllocation } from '../services/llm';
 import { parseOffline, offlineReply } from '../services/offlineLedger';
 
-export default function BlindMode({ apiKey, lang, t, onExit }) {
+export default function BlindMode({ apiKey, onSetKey, lang, t, onExit }) {
   const [wallet, setWallet] = useState(1000);
   const [isListening, setIsListening] = useState(false);
   const [message, setMessage] = useState(t.blindWelcome);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [keyInput, setKeyInput] = useState(apiKey || '');
   
   const recognitionRef = useRef(null);
   const isListeningRef = useRef(false);
   const isProcessingRef = useRef(false);
+  const langRef = useRef(lang);
+  const isHeldRef = useRef(false);
+  const currentTranscriptRef = useRef('');
+  const [lastHeard, setLastHeard] = useState('');
+
+  useEffect(() => {
+    langRef.current = lang;
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = lang === 'hi' ? 'hi-IN' : lang === 'te' ? 'te-IN' : 'en-IN';
+    }
+  }, [lang]);
 
   useEffect(() => {
     speak(message);
@@ -18,8 +31,9 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = lang === 'hi' ? 'hi-IN' : lang === 'te' ? 'te-IN' : 'en-IN';
       
       recognition.onstart = () => {
         isListeningRef.current = true;
@@ -27,32 +41,61 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
       };
 
       recognition.onresult = (event) => {
-        // Guard: only process once per recording session
-        if (isProcessingRef.current) return;
-        isProcessingRef.current = true;
-        const transcript = event.results[0][0].transcript;
-        processInput(transcript);
+        let full = '';
+        for (let i = 0; i < event.results.length; ++i) {
+          full += event.results[i][0].transcript + ' ';
+        }
+        const trimmed = full.trim();
+        currentTranscriptRef.current = trimmed;
+        setMessage(trimmed ? `"${trimmed}"` : "Listening...");
       };
 
       recognition.onerror = () => {
-        isListeningRef.current = false;
-        setIsListening(false);
+        if (!isHeldRef.current) {
+          isListeningRef.current = false;
+          setIsListening(false);
+        }
       };
 
       recognition.onend = () => {
+        // If user is STILL holding the spacebar or mouse, keep listening!
+        if (isHeldRef.current) {
+          try { recognition.start(); } catch(e) {}
+          return;
+        }
         isListeningRef.current = false;
         setIsListening(false);
+        const textToProcess = currentTranscriptRef.current.trim();
+        currentTranscriptRef.current = '';
+        if (textToProcess && !isProcessingRef.current) {
+          isProcessingRef.current = true;
+          setLastHeard(textToProcess);
+          processInput(textToProcess);
+        } else {
+          isProcessingRef.current = false;
+        }
       };
       
       recognitionRef.current = recognition;
     }
 
     const handleKeyDown = (e) => {
+      // Don't trigger shortcuts if user is typing in an input
+      if (['INPUT', 'TEXTAREA'].includes(e.target?.tagName)) return;
+
       if (e.code === 'Space') {
         e.preventDefault();
-        if (!e.repeat && !isListeningRef.current && !isProcessingRef.current) {
+        if (!e.repeat && !isHeldRef.current && !isProcessingRef.current) {
+          isHeldRef.current = true;
           window.speechSynthesis.cancel();
-          try { recognitionRef.current?.start(); } catch(err) {}
+          currentTranscriptRef.current = '';
+          try {
+            if (recognitionRef.current) {
+              const curLang = langRef.current || lang;
+              recognitionRef.current.lang = curLang === 'hi' ? 'hi-IN' : curLang === 'te' ? 'te-IN' : 'en-IN';
+            }
+            recognitionRef.current?.start();
+          } catch(err) {}
         }
       }
       if (e.code === 'KeyR' && !e.repeat) {
@@ -66,9 +109,14 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
     };
 
     const handleKeyUp = (e) => {
-      if (e.code === 'Space') {
+      if (['INPUT', 'TEXTAREA'].includes(e.target?.tagName)) return;
+      if (e.code === 'Space' && isHeldRef.current) {
         e.preventDefault();
-        recognitionRef.current?.stop();
+        isHeldRef.current = false;
+        // Small delay to capture the final word spoken right as space was released
+        setTimeout(() => {
+          try { recognitionRef.current?.stop(); } catch(err) {}
+        }, 300);
       }
     };
 
@@ -76,6 +124,7 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
     window.addEventListener('keyup', handleKeyUp);
     
     return () => {
+      isHeldRef.current = false;
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.speechSynthesis.cancel();
@@ -89,12 +138,34 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
+      const curLang = langRef.current || lang;
+      utterance.lang = curLang === 'hi' ? 'hi-IN' : curLang === 'te' ? 'te-IN' : 'en-IN';
       window.speechSynthesis.speak(utterance);
     }, 150);
   };
 
   const processInput = async (transcript) => {
-    setMessage(t.processing);
+    if (!apiKey) {
+      const missingMsg = "Gemini API key is required for AI Audio Mode. Please click Connect Key above to enter your API key.";
+      setMessage(missingMsg);
+      speak(missingMsg);
+      setShowKeyModal(true);
+      isProcessingRef.current = false;
+      return;
+    }
+
+    setMessage(t.processing || "Processing your response...");
+
+    let result = null;
+    let offline = false;
+
+    try {
+      result = await parseVoiceAllocation(apiKey, transcript, langRef.current || lang);
+    } catch (err) {
+      console.warn("Gemini voice error, falling back:", err);
+      offline = true;
+      result = parseOffline(transcript);
+    }
 
     // Without a key, or when the AI cannot be reached, Audio Mode still answers locally.
     // API error text is never spoken or shown; the offline reply replaces it.
@@ -115,6 +186,11 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
     }
     const offline = !apiKey || fellBack;
 
+    if (!result) {
+      result = parseOffline(transcript);
+      offline = true;
+    }
+    
     let netChange = 0;
     if (result.actions && Array.isArray(result.actions)) {
       result.actions.forEach(action => {
@@ -144,17 +220,84 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
 
   // For users who use screen readers but still want to click
   const handleMousePress = () => {
+    isHeldRef.current = true;
     window.speechSynthesis.cancel();
-    recognitionRef.current?.start();
+    currentTranscriptRef.current = '';
+    if (recognitionRef.current) {
+      const curLang = langRef.current || lang;
+      recognitionRef.current.lang = curLang === 'hi' ? 'hi-IN' : curLang === 'te' ? 'te-IN' : 'en-IN';
+    }
+    try { recognitionRef.current?.start(); } catch(e) {}
   };
 
   const handleMouseRelease = () => {
-    recognitionRef.current?.stop();
+    if (isHeldRef.current) {
+      isHeldRef.current = false;
+      setTimeout(() => {
+        try { recognitionRef.current?.stop(); } catch(err) {}
+      }, 300);
+    }
+  };
+
+  const handleSaveKey = (e) => {
+    e.preventDefault();
+    if (keyInput.trim()) {
+      onSetKey?.(keyInput.trim());
+      setShowKeyModal(false);
+      const conf = "Gemini API key connected! AI Audio Mode is active. Hold the spacebar to speak.";
+      setMessage(conf);
+      speak(conf);
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center p-8 text-center">
+    <div className="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center p-8 text-center overflow-y-auto">
       
+      {/* Top Bar: API Key status / button + Exit Button */}
+      <div className="absolute top-6 inset-x-8 flex items-center justify-between z-20">
+        <div className="flex items-center gap-3">
+          {apiKey ? (
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-2 rounded-xl bg-emerald-500/20 border-2 border-emerald-500/60 px-4 py-2 text-sm font-black text-emerald-400">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                Gemini AI Connected
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setKeyInput(apiKey);
+                  setShowKeyModal(true);
+                }}
+                className="rounded-xl border border-yellow-400/60 px-3 py-2 text-xs font-bold text-yellow-300 hover:bg-yellow-400 hover:text-black transition"
+              >
+                Change Key
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setKeyInput('');
+                setShowKeyModal(true);
+              }}
+              className="flex items-center gap-2 rounded-xl bg-amber-500/20 border-2 border-amber-400 px-4 py-2 font-black text-sm text-amber-300 hover:bg-amber-400 hover:text-black transition animate-bounce"
+            >
+              <KeyRound size={16} /> Connect Gemini API Key
+            </button>
+          )}
+        </div>
+
+        <button 
+          onClick={() => {
+            window.speechSynthesis.cancel();
+            onExit();
+          }}
+          className="text-yellow-400 border-2 border-yellow-400 px-6 py-3 rounded-xl font-bold text-xl hover:bg-yellow-400 hover:text-black transition-colors"
+        >
+          {t.exitBtn}
+        </button>
+      </div>
+
       <button 
         onMouseDown={handleMousePress}
         onMouseUp={handleMouseRelease}
@@ -170,7 +313,13 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
         )}
       </button>
 
-      <h1 className="text-yellow-400 text-4xl md:text-5xl font-black mt-16 max-w-5xl leading-relaxed tracking-wide" aria-live="polite">
+      {lastHeard && (
+        <div className="mt-8 bg-emerald-500/20 border-2 border-emerald-400 text-emerald-300 font-bold text-xl md:text-2xl px-6 py-2.5 rounded-2xl max-w-4xl shadow-lg">
+          🎤 You said: &ldquo;{lastHeard}&rdquo;
+        </div>
+      )}
+
+      <h1 className="text-yellow-400 text-3xl md:text-5xl font-black mt-6 max-w-5xl leading-relaxed tracking-wide" aria-live="polite">
         {message}
       </h1>
 
@@ -185,16 +334,55 @@ export default function BlindMode({ apiKey, lang, t, onExit }) {
       >
         🔁 {t.repeatBtn}
       </button>
-      
-      <button 
-        onClick={() => {
-          window.speechSynthesis.cancel();
-          onExit();
-        }}
-        className="absolute top-8 right-8 text-yellow-400 border-2 border-yellow-400 px-6 py-3 rounded-xl font-bold text-xl hover:bg-yellow-400 hover:text-black transition-colors"
-      >
-        {t.exitBtn}
-      </button>
+
+      {/* Modal for setting API key inside Audio Mode */}
+      {showKeyModal && (
+        <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-slate-900 border-2 border-yellow-400 rounded-3xl p-6 text-left shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-black text-yellow-400 flex items-center gap-2">
+                <KeyRound size={22} /> Gemini API Key
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowKeyModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-slate-300 font-medium">
+              Enter or paste your Google Gemini API key below to activate live voice AI for your demo.
+            </p>
+            <form onSubmit={handleSaveKey} className="mt-5 space-y-4">
+              <input
+                type="password"
+                autoFocus
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder="Paste Gemini API key here..."
+                className="w-full rounded-xl border-2 border-yellow-400/60 bg-black px-4 py-3 font-mono text-sm text-yellow-300 outline-none focus:border-yellow-400 placeholder:text-slate-600"
+              />
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowKeyModal(false)}
+                  className="rounded-xl border border-slate-700 px-5 py-2.5 text-sm font-bold text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!keyInput.trim()}
+                  className="rounded-xl bg-yellow-400 px-6 py-2.5 text-sm font-black text-black hover:bg-yellow-300 disabled:opacity-50"
+                >
+                  Save & Connect AI
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

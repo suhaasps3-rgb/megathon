@@ -2,7 +2,7 @@
 
 **Learn money by living it.** PaisaPath is a game-first financial literacy app for Indian students aged 16–17. Players make realistic money choices (spend or save, borrow or wait, trust the "guaranteed returns" message or not) and see what each choice leads to. All money is simulated; the lessons are real.
 
-**Live demo:** _coming soon: add your Vercel link here_
+**Live demo:** https://paisapath-app.vercel.app
 
 ![PaisaPath home screen](docs/screenshots/home.png)
 

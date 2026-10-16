@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Wallet, Info, ChevronRight, Sparkles, AlertTriangle, Target, BookOpen, ChevronDown, Activity, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { scenarios as staticScenarios } from '../data/scenarios';
 import { generateDynamicScenario } from '../services/llm';
+import { isPlayableScenario } from '../services/scenarioShape';
 import translations, { fill } from '../data/translations';
 import AnimatedNumber from './ui/AnimatedNumber';
 import { compound } from '../lifemode/domain/futureLab.js';
@@ -29,7 +30,7 @@ function builtIn(profile) {
   return staticScenarios[interest] || staticScenarios.default;
 }
 
-export default function Game({ apiKey, profile, assessmentScore, onComplete, t }) {
+export default function Game({ aiEnabled, profile, assessmentScore, onComplete, t }) {
   const T = { ...translations.en, ...(t || {}) };
   const [scenario, setScenario] = useState(null);
   const [notice, setNotice] = useState(null); // 'builtin' | 'failed'
@@ -45,13 +46,16 @@ export default function Game({ apiKey, profile, assessmentScore, onComplete, t }
   useEffect(() => {
     let cancelled = false;
     // Without a key there is nothing to call, so go straight to the built-in scenario.
-    if (!apiKey) {
+    if (!aiEnabled) {
       setScenario(builtIn(profile));
       setNotice('builtin');
       return undefined;
     }
-    generateDynamicScenario(apiKey, profile, assessmentScore)
-      .then((s) => { if (!cancelled) setScenario(s); })
+    generateDynamicScenario(profile, assessmentScore)
+      .then((s) => {
+        if (!isPlayableScenario(s)) throw new Error('AI scenario was incomplete');
+        if (!cancelled) setScenario(s);
+      })
       .catch((err) => {
         console.error('Scenario generation failed, using built-in:', err);
         if (cancelled) return;
@@ -59,7 +63,7 @@ export default function Game({ apiKey, profile, assessmentScore, onComplete, t }
         setNotice('failed');
       });
     return () => { cancelled = true; };
-  }, [apiKey, profile, assessmentScore]);
+  }, [aiEnabled, profile, assessmentScore]);
 
   useEffect(() => { if (scenario) questionRef.current?.focus({ preventScroll: true }); }, [decisionIndex, scenario]);
 

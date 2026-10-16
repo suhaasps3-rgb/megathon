@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, BookOpen, Gamepad2, Box, Mic, Eye, Sparkles, KeyRound } from 'lucide-react';
+import { ArrowRight, BookOpen, Gamepad2, Box, Mic, Eye } from 'lucide-react';
 import Mascot from './brand/Mascot.jsx';
 import { fill } from '../data/translations.js';
 import { readProgress } from '../services/progress.js';
@@ -15,10 +15,10 @@ function greetingFor(t, hour = new Date().getHours()) {
 }
 
 /**
- * Landing page. Shows the core idea (a choice and its future), the three ways to play with
- * real saved progress, and the optional AI connection.
+ * Landing page. Shows the core idea (a choice and its future) and the three ways to play with
+ * real saved progress.
  */
-export default function Home({ t, profile, hasAi, canEditKey, onSetKey, onLearn, onLife, on3d, onMentor, onAudio }) {
+export default function Home({ t, profile, onLearn, onLife, on3d, onMentor, onAudio }) {
   const progress = useMemo(() => readProgress(), []);
   const greeting = greetingFor(t);
 
@@ -112,7 +112,6 @@ export default function Home({ t, profile, hasAi, canEditKey, onSetKey, onLearn,
             <ArrowRight size={18} className="ml-auto shrink-0 text-purple-700 transition group-hover:translate-x-0.5" aria-hidden="true" />
           </button>
         </div>
-        {canEditKey && <AiConnection t={t} hasAi={hasAi} onSetKey={onSetKey} />}
       </section>
     </div>
   );
@@ -161,53 +160,10 @@ function HeroChoice({ t }) {
                 />
               ))}
             </div>
+            <p className="mt-2 text-xs leading-snug text-teal-900/80">{t.heroAssume}</p>
           </div>
         </div>
       </figure>
     </motion.div>
-  );
-}
-
-function AiConnection({ t, hasAi, onSetKey }) {
-  const [key, setKey] = useState('');
-  return (
-    <div className="card mt-4 flex flex-col gap-4 p-5 md:flex-row md:items-center">
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-purple-100 text-purple-700"><Sparkles size={22} aria-hidden="true" /></span>
-      <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-2 font-display font-extrabold text-ink-900">
-          {t.aiTitle}
-          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${hasAi ? 'bg-teal-100 text-teal-800' : 'bg-slate-100 text-slate-600'}`}>{hasAi ? t.aiOn : t.aiOff}</span>
-        </p>
-        <p className="text-sm text-slate-600">{t.aiDesc}</p>
-      </div>
-      {hasAi ? (
-        <button type="button" onClick={() => onSetKey('')} className="btn-secondary">{t.aiDisconnect}</button>
-      ) : (
-        <form
-          className="flex w-full flex-col gap-2 sm:flex-row md:w-auto"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (key.trim()) onSetKey(key.trim());
-            setKey('');
-          }}
-        >
-          <label className="relative block">
-            <span className="sr-only">{t.setupKeyLabel}</span>
-            <KeyRound size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-            <input
-              type="password"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              autoComplete="off"
-              placeholder={t.setupKeyLabel}
-              aria-describedby="ai-key-help"
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-3 font-mono text-sm outline-none transition focus:border-purple-500 focus:bg-white sm:w-64"
-            />
-          </label>
-          <button type="submit" disabled={!key.trim()} className="btn-primary">{t.aiConnect}</button>
-          <span id="ai-key-help" className="sr-only">{t.aiKeyHelp}</span>
-        </form>
-      )}
-    </div>
   );
 }

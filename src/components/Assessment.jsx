@@ -6,7 +6,7 @@ import { offlineAssessment } from '../services/offlineAssessment';
 import translations from '../data/translations';
 import Mascot from './brand/Mascot';
 
-export default function Assessment({ apiKey, onComplete, t }) {
+export default function Assessment({ aiEnabled, onComplete, t }) {
   const T = { ...translations.en, ...(t || {}) };
   const [selected, setSelected] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,15 +36,19 @@ export default function Assessment({ apiKey, onComplete, t }) {
     setFellBack(false);
 
     // Without a key, the read is local and expected, so no failure notice is shown.
-    if (!apiKey) {
+    if (!aiEnabled) {
       setResult(offlineAssessment(option.id, T.assmFallbackText));
       setIsSubmitting(false);
       return;
     }
     try {
-      const assessment = await assessUnderstanding(apiKey, `The user chose to: ${option.title} - ${option.desc}`);
+      const assessment = await assessUnderstanding(`The user chose to: ${option.title} - ${option.desc}`);
       if (id !== runId.current) return;
-      setResult(assessment);
+      const level = Number(assessment?.level);
+      if (!(level >= 1 && level <= 10) || typeof assessment.analysis !== 'string' || !assessment.analysis.trim()) {
+        throw new Error('Unexpected assessment shape');
+      }
+      setResult({ level: Math.round(level), analysis: assessment.analysis });
     } catch (err) {
       console.error(err);
       if (id !== runId.current) return;

@@ -1,0 +1,7 @@
+# Keeps local-only files out of a `vercel` CLI upload. Git-based deploys never see them anyway.
+.env
+.env.*
+!.env.example
+/dist
+/megathon
+/megathon26-cache-me-if-you-can

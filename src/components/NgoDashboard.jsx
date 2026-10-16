@@ -21,14 +21,14 @@ export default function NgoDashboard({ onBack }) {
                 Demo data
               </span>
             </div>
-            <p className="text-slate-400 mt-2 text-lg">Demo data for the Hyderabad Vanguard Pilot (~1,500 students). These numbers are illustrative, not live.</p>
+            <p className="text-slate-400 mt-2 text-lg">A concept preview of what a facilitator could see in a classroom pilot. Every number here is made up for the demo; none of it is live or from real students.</p>
           </div>
           <div className="hidden md:flex items-center gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
             <div className="w-12 h-12 bg-teal-500/20 text-teal-400 rounded-xl flex items-center justify-center">
               <MapPin size={24} />
             </div>
             <div>
-              <p className="text-sm text-slate-400 font-bold uppercase tracking-wider">Active Region</p>
+              <p className="text-sm text-slate-400 font-bold uppercase tracking-wider">Example Region</p>
               <p className="text-xl font-black">Hyderabad, TS</p>
             </div>
           </div>
@@ -89,7 +89,7 @@ export default function NgoDashboard({ onBack }) {
                   </div>
                   {pillar.alert && (
                     <p className="text-amber-400 text-sm mt-2 font-medium flex items-center gap-1">
-                      <ShieldAlert size={14} /> Requires facilitator intervention this week.
+                      <ShieldAlert size={14} /> Example alert: a low pillar score would flag this topic for a facilitator.
                     </p>
                   )}
                 </div>
@@ -107,11 +107,12 @@ export default function NgoDashboard({ onBack }) {
             <TrendingUp size={48} className="text-teal-400 mb-6" />
             <h2 className="text-3xl font-black mb-4">The "Butterfly Effect" Impact</h2>
             <p className="text-slate-300 text-lg leading-relaxed mb-6">
-              By translating abstract investing concepts into immediate "Future Self" visualizations, 
-              students in the pilot are showing a <span className="text-teal-400 font-bold text-2xl">314% increase</span> in choosing to save over immediate gratification.
+              PaisaPath turns abstract investing ideas into immediate "Future Self" visualizations.
+              In a real pilot, this panel would track how often students choose to save over instant
+              spending. It has not been measured yet.
             </p>
             <div className="bg-slate-900/50 p-4 rounded-xl border border-teal-500/20 inline-block">
-              <span className="text-slate-400 text-sm font-bold uppercase tracking-wider block mb-1">Total Simulated Wealth Created</span>
+              <span className="text-slate-400 text-sm font-bold uppercase tracking-wider block mb-1">Total Simulated Wealth (demo figure)</span>
               <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-emerald-300">
                 ₹ 14,250,000
               </span>

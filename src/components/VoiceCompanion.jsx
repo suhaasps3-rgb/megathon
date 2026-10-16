@@ -18,7 +18,7 @@ const inr = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 // Example sentences the offline parser understands, so they work with or without AI.
 const TRY_CHIPS = ['I spent 120 on lunch', 'I got 500 from my aunt', 'Should I buy a cycle or start a SIP?'];
 
-export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
+export default function VoiceCompanion({ aiEnabled, lang = 'en', t, onComplete }) {
   const tt = t || translations[lang] || translations.en;
   const reduceMotion = useReducedMotion();
 
@@ -188,11 +188,11 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
     // Without a key, or when the AI cannot be reached, the mentor still answers locally.
     let result;
     let fellBack = false;
-    if (!apiKey) {
+    if (!aiEnabled) {
       result = parseOffline(text);
     } else {
       try {
-        result = await parseVoiceAllocation(apiKey, text, lang);
+        result = await parseVoiceAllocation(text, lang);
       } catch {
         result = { failed: true };
       }
@@ -201,7 +201,7 @@ export default function VoiceCompanion({ apiKey, lang = 'en', t, onComplete }) {
         fellBack = true;
       }
     }
-    const offline = !apiKey || fellBack;
+    const offline = !aiEnabled || fellBack;
 
     let netChange = 0;
     const newItems = [];

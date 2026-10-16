@@ -13,6 +13,7 @@ import AppHeader, { LEARN_STATES } from './components/shell/AppHeader';
 import JourneyBar from './components/shell/JourneyBar';
 import Mascot from './components/brand/Mascot';
 import translations from './data/translations';
+import { checkAiAvailable } from './services/llm';
 const LifeMode = lazy(() => import('./components/life/LifeMode'));
 const NeighborhoodGame = lazy(() => import('./components/world/NeighborhoodGame'));
 
@@ -26,11 +27,10 @@ function Loading({ label }) {
 }
 
 function App() {
-  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
-
   const [state, setState] = useState('HOME');
   const [lastLearn, setLastLearn] = useState('ONBOARDING');
-  const [apiKey, setApiKey] = useState(envKey || '');
+  // True only when the server proxy has a Gemini key. Until then every mode runs offline.
+  const [aiEnabled, setAiEnabled] = useState(false);
   const [profile, setProfile] = useState(null);
   const [assessmentScore, setAssessmentScore] = useState(0);
   const [gameData, setGameData] = useState(null);
@@ -73,27 +73,17 @@ function App() {
   }, [lang]);
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      const tag = e.target.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
-      if (e.target.isContentEditable) return;
-
-      if (e.code === 'Space' && !e.repeat && !['BLIND_MODE', 'LIFE', 'NEIGHBORHOOD'].includes(state)) {
-        e.preventDefault();
-        setState('BLIND_MODE');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state]);
+    let cancelled = false;
+    checkAiAvailable().then((on) => { if (!cancelled) setAiEnabled(on); });
+    return () => { cancelled = true; };
+  }, []);
 
   if (isNgoMode) {
     return <NgoDashboard t={t} onBack={() => setIsNgoMode(false)} />;
   }
 
   if (state === 'BLIND_MODE') {
-    return <BlindMode apiKey={apiKey} lang={lang} t={t} onExit={() => go('HOME')} />;
+    return <BlindMode aiEnabled={aiEnabled} lang={lang} t={t} onExit={() => go('HOME')} />;
   }
 
   return (
@@ -103,9 +93,7 @@ function App() {
         <a href="#main" className="sr-only z-[60] rounded-xl bg-ink-900 px-4 py-3 font-bold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
           {t.skipToContent}
         </a>
-        <div className="sr-only" role="alert" aria-live="assertive">
-          {t.blindWelcome}
-        </div>
+        <p className="sr-only">{t.srAudioHint}</p>
 
         <AppHeader t={t} state={state} lang={lang} setLang={setLang} onNavigate={go} onNgo={() => setIsNgoMode(true)} />
         <JourneyBar state={state} t={t} />
@@ -115,9 +103,6 @@ function App() {
             <Home
               t={t}
               profile={profile}
-              hasAi={Boolean(apiKey)}
-              canEditKey={!envKey}
-              onSetKey={setApiKey}
               onLearn={() => go('LEARN')}
               onLife={() => go('LIFE')}
               on3d={() => go('NEIGHBORHOOD')}
@@ -126,8 +111,8 @@ function App() {
             />
           )}
           {state === 'ONBOARDING' && <Onboarding onComplete={handleOnboardingComplete} t={t} />}
-          {state === 'ASSESSMENT' && <Assessment apiKey={apiKey} onComplete={handleAssessmentComplete} t={t} />}
-          {state === 'GAME' && <Game apiKey={apiKey} profile={profile} assessmentScore={assessmentScore} onComplete={handleGameComplete} t={t} />}
+          {state === 'ASSESSMENT' && <Assessment aiEnabled={aiEnabled} onComplete={handleAssessmentComplete} t={t} />}
+          {state === 'GAME' && <Game aiEnabled={aiEnabled} profile={profile} assessmentScore={assessmentScore} onComplete={handleGameComplete} t={t} />}
           {state === 'REPORT' && <Report data={gameData} onRestart={resetToStart} t={t} />}
           {state === 'LIFE' && (
             <Suspense fallback={<Loading label={t.lifeMode} />}>
@@ -139,7 +124,7 @@ function App() {
               <NeighborhoodGame onExit={() => go('HOME')} />
             </Suspense>
           )}
-          {state === 'VOICE' && <VoiceCompanion apiKey={apiKey} lang={lang} t={t} onComplete={() => go('HOME')} />}
+          {state === 'VOICE' && <VoiceCompanion aiEnabled={aiEnabled} lang={lang} t={t} onComplete={() => go('HOME')} />}
         </main>
       </div>
     </MotionConfig>

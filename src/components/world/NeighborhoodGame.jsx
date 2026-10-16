@@ -352,20 +352,22 @@ export default function NeighborhoodGame({ onExit }) {
               onGet={getMission}
             />
           </div>
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-xl bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow-lg backdrop-blur hover:bg-white"
-          >
-            <RotateCcw size={14} aria-hidden="true" /> {T.wRestart}
-          </button>
-          <button
-            type="button"
-            onClick={onExit}
-            className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-xl bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow-lg backdrop-blur hover:bg-white"
-          >
-            <ArrowLeft size={14} aria-hidden="true" /> PaisaPath
-          </button>
+          <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-xl bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow-lg backdrop-blur hover:bg-white"
+            >
+              <RotateCcw size={14} aria-hidden="true" /> {T.wRestart}
+            </button>
+            <button
+              type="button"
+              onClick={onExit}
+              className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-xl bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow-lg backdrop-blur hover:bg-white"
+            >
+              <ArrowLeft size={14} aria-hidden="true" /> PaisaPath
+            </button>
+          </div>
         </div>
 
         {toast && (
@@ -454,8 +456,11 @@ export default function NeighborhoodGame({ onExit }) {
         )}
       </div>
 
-      <p className="mt-3 text-center text-xs font-bold text-slate-600">
+      <p className="mt-3 hidden text-center text-xs font-bold text-slate-600 md:block">
         Move with WASD or arrows · Drag to look · Shift to run · Space to jump · E to talk · Esc to pause
+      </p>
+      <p className="mt-3 text-center text-xs font-bold text-slate-600 md:hidden">
+        Move with the joystick · Drag to look · Tap Jump · Tap Talk near people · Restart opens the pause menu
       </p>
     </div>
   );
